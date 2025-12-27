@@ -1,44 +1,64 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database');
+const supabase = require('../supabase');
 const { extractVocabulary } = require('../services/vocabulary-extractor');
 
 /**
  * GET /api/journal/entries
  * Get all journal entries with pagination
  */
-router.get('/entries', (req, res) => {
+router.get('/entries', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
 
     const sort = req.query.sort || 'newest';
-    let orderBy = 'created_at DESC';
+    let orderColumn = 'created_at';
+    let ascending = false;
 
     switch (sort) {
-      case 'oldest': orderBy = 'created_at ASC'; break;
-      case 'longest': orderBy = 'word_count DESC'; break;
-      case 'shortest': orderBy = 'word_count ASC'; break;
-      default: orderBy = 'created_at DESC';
+      case 'oldest':
+        orderColumn = 'created_at';
+        ascending = true;
+        break;
+      case 'longest':
+        orderColumn = 'word_count';
+        ascending = false;
+        break;
+      case 'shortest':
+        orderColumn = 'word_count';
+        ascending = true;
+        break;
+      default:
+        orderColumn = 'created_at';
+        ascending = false;
     }
 
-    const entries = db.prepare(`
-      SELECT * FROM journal_entries 
-      ORDER BY ${orderBy} 
-      LIMIT ? OFFSET ?
-    `).all(limit, offset);
+    // Get entries with pagination
+    const { data: entries, error } = await supabase
+      .from('journal_entries')
+      .select('*')
+      .order(orderColumn, { ascending })
+      .range(offset, offset + limit - 1);
 
-    const total = db.prepare('SELECT COUNT(*) as count FROM journal_entries').get();
+    if (error) throw error;
+
+    // Get total count
+    const { count, error: countError } = await supabase
+      .from('journal_entries')
+      .select('*', { count: 'exact', head: true });
+
+    if (countError) throw countError;
 
     res.json({
       success: true,
-      data: entries,
+      data: entries || [],
       pagination: {
         page,
         limit,
-        total: total.count,
-        pages: Math.ceil(total.count / limit)
+        total: count || 0,
+        pages: Math.ceil((count || 0) / limit)
       }
     });
   } catch (error) {
@@ -54,15 +74,22 @@ router.get('/entries', (req, res) => {
  * GET /api/journal/entry/:id
  * Get a specific journal entry
  */
-router.get('/entry/:id', (req, res) => {
+router.get('/entry/:id', async (req, res) => {
   try {
-    const entry = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(req.params.id);
+    const { data: entry, error } = await supabase
+      .from('journal_entries')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
 
-    if (!entry) {
-      return res.status(404).json({
-        success: false,
-        error: 'Journal entry not found'
-      });
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          error: 'Journal entry not found'
+        });
+      }
+      throw error;
     }
 
     res.json({
@@ -98,41 +125,56 @@ router.post('/entry', async (req, res) => {
     const wordCount = german_text.trim().split(/\s+/).length;
 
     // Insert journal entry
-    const result = db.prepare(`
-      INSERT INTO journal_entries (english_text, german_text, word_count, session_duration)
-      VALUES (?, ?, ?, ?)
-    `).run(english_text, german_text, wordCount, session_duration || 0);
+    const { data: newEntry, error } = await supabase
+      .from('journal_entries')
+      .insert({
+        english_text,
+        german_text,
+        word_count: wordCount,
+        session_duration: session_duration || 0
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     // Extract vocabulary from German text (async)
     const newWords = await extractVocabulary(german_text);
 
     // Update progress stats for today
     const today = new Date().toISOString().split('T')[0];
-    const existingStats = db.prepare('SELECT * FROM progress_stats WHERE date = ?').get(today);
+
+    // Check if stats exist for today
+    const { data: existingStats } = await supabase
+      .from('progress_stats')
+      .select('*')
+      .eq('date', today)
+      .single();
 
     if (existingStats) {
-      db.prepare(`
-        UPDATE progress_stats
-        SET words_learned = words_learned + ?,
-            entries_written = entries_written + 1,
-            minutes_practiced = minutes_practiced + ?
-        WHERE date = ?
-      `).run(newWords.length, session_duration || 0, today);
+      await supabase
+        .from('progress_stats')
+        .update({
+          words_learned: existingStats.words_learned + newWords.length,
+          entries_written: existingStats.entries_written + 1,
+          minutes_practiced: existingStats.minutes_practiced + (session_duration || 0)
+        })
+        .eq('date', today);
     } else {
-      db.prepare(`
-        INSERT INTO progress_stats (date, words_learned, entries_written, minutes_practiced)
-        VALUES (?, ?, 1, ?)
-      `).run(today, newWords.length, session_duration || 0);
+      await supabase
+        .from('progress_stats')
+        .insert({
+          date: today,
+          words_learned: newWords.length,
+          entries_written: 1,
+          minutes_practiced: session_duration || 0
+        });
     }
 
     res.status(201).json({
       success: true,
       data: {
-        id: result.lastInsertRowid,
-        english_text,
-        german_text,
-        word_count: wordCount,
-        created_at: new Date().toISOString(),
+        ...newEntry,
         new_words: newWords
       }
     });
@@ -154,28 +196,38 @@ router.put('/entry/:id', async (req, res) => {
     const { english_text, german_text } = req.body;
 
     // Check if entry exists
-    const existing = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(req.params.id);
-    if (!existing) {
-      return res.status(404).json({
-        success: false,
-        error: 'Journal entry not found'
-      });
+    const { data: existing, error: fetchError } = await supabase
+      .from('journal_entries')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          error: 'Journal entry not found'
+        });
+      }
+      throw fetchError;
     }
 
     // Count words
     const wordCount = german_text ? german_text.trim().split(/\s+/).length : existing.word_count;
 
     // Update entry
-    db.prepare(`
-      UPDATE journal_entries
-      SET english_text = ?, german_text = ?, word_count = ?
-      WHERE id = ?
-    `).run(
-      english_text || existing.english_text,
-      german_text || existing.german_text,
-      wordCount,
-      req.params.id
-    );
+    const { data: updated, error } = await supabase
+      .from('journal_entries')
+      .update({
+        english_text: english_text || existing.english_text,
+        german_text: german_text || existing.german_text,
+        word_count: wordCount
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
 
     // If German text changed, re-extract vocabulary (async)
     let newWords = [];
@@ -186,10 +238,7 @@ router.put('/entry/:id', async (req, res) => {
     res.json({
       success: true,
       data: {
-        id: req.params.id,
-        english_text: english_text || existing.english_text,
-        german_text: german_text || existing.german_text,
-        word_count: wordCount,
+        ...updated,
         new_words: newWords
       }
     });
@@ -206,16 +255,14 @@ router.put('/entry/:id', async (req, res) => {
  * DELETE /api/journal/entry/:id
  * Delete a journal entry
  */
-router.delete('/entry/:id', (req, res) => {
+router.delete('/entry/:id', async (req, res) => {
   try {
-    const result = db.prepare('DELETE FROM journal_entries WHERE id = ?').run(req.params.id);
+    const { error } = await supabase
+      .from('journal_entries')
+      .delete()
+      .eq('id', req.params.id);
 
-    if (result.changes === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Journal entry not found'
-      });
-    }
+    if (error) throw error;
 
     res.json({
       success: true,
@@ -234,7 +281,7 @@ router.delete('/entry/:id', (req, res) => {
  * GET /api/journal/search
  * Search journal entries
  */
-router.get('/search', (req, res) => {
+router.get('/search', async (req, res) => {
   try {
     const { q, startDate, endDate } = req.query;
 
@@ -245,32 +292,35 @@ router.get('/search', (req, res) => {
       });
     }
 
-    let query = 'SELECT * FROM journal_entries WHERE 1=1';
-    const params = [];
+    let query = supabase.from('journal_entries').select('*');
 
+    // Add search filter
     if (q) {
-      query += ' AND (english_text LIKE ? OR german_text LIKE ?)';
-      params.push(`%${q}%`, `%${q}%`);
+      query = query.or(`english_text.ilike.%${q}%,german_text.ilike.%${q}%`);
     }
 
+    // Add date filters
     if (startDate) {
-      query += ' AND date(created_at) >= date(?)';
-      params.push(startDate);
+      query = query.gte('created_at', startDate);
     }
 
     if (endDate) {
-      query += ' AND date(created_at) <= date(?)';
-      params.push(endDate);
+      // Add one day to include the end date
+      const endDateTime = new Date(endDate);
+      endDateTime.setDate(endDateTime.getDate() + 1);
+      query = query.lt('created_at', endDateTime.toISOString());
     }
 
-    query += ' ORDER BY created_at DESC LIMIT 50';
+    const { data: results, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(50);
 
-    const results = db.prepare(query).all(...params);
+    if (error) throw error;
 
     res.json({
       success: true,
-      data: results,
-      count: results.length
+      data: results || [],
+      count: results ? results.length : 0
     });
   } catch (error) {
     console.error('Error searching journal entries:', error);

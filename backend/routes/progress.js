@@ -1,55 +1,91 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database');
+const supabase = require('../supabase');
 
 /**
  * GET /api/progress/stats
  * Get overall progress statistics
  */
-router.get('/stats', (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
     // Total vocabulary
-    const vocabCount = db.prepare('SELECT COUNT(*) as count FROM vocabulary').get();
+    const { count: vocabCount, error: vocabError } = await supabase
+      .from('vocabulary')
+      .select('*', { count: 'exact', head: true });
+
+    if (vocabError) throw vocabError;
 
     // Total journal entries
-    const entriesCount = db.prepare('SELECT COUNT(*) as count FROM journal_entries').get();
+    const { count: entriesCount, error: entriesError } = await supabase
+      .from('journal_entries')
+      .select('*', { count: 'exact', head: true });
+
+    if (entriesError) throw entriesError;
 
     // Total words written
-    const totalWords = db.prepare('SELECT SUM(word_count) as total FROM journal_entries').get();
+    const { data: totalWordsData, error: wordsError } = await supabase
+      .rpc('sum_word_count');
+
+    // If RPC doesn't exist, calculate manually
+    let totalWords = 0;
+    if (wordsError) {
+      const { data: entries } = await supabase
+        .from('journal_entries')
+        .select('word_count');
+      totalWords = entries ? entries.reduce((sum, e) => sum + (e.word_count || 0), 0) : 0;
+    } else {
+      totalWords = totalWordsData || 0;
+    }
 
     // Total practice time
-    const totalTime = db.prepare('SELECT SUM(minutes_practiced) as total FROM progress_stats').get();
+    const { data: totalTimeData, error: timeError } = await supabase
+      .rpc('sum_minutes_practiced');
+
+    let totalTime = 0;
+    if (timeError) {
+      const { data: stats } = await supabase
+        .from('progress_stats')
+        .select('minutes_practiced');
+      totalTime = stats ? stats.reduce((sum, s) => sum + (s.minutes_practiced || 0), 0) : 0;
+    } else {
+      totalTime = totalTimeData || 0;
+    }
 
     // Words learned this week
-    const thisWeekWords = db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM vocabulary 
-      WHERE first_seen >= date('now', '-7 days')
-    `).get();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const { count: thisWeekWords, error: weekWordsError } = await supabase
+      .from('vocabulary')
+      .select('*', { count: 'exact', head: true })
+      .gte('first_seen', sevenDaysAgo.toISOString());
+
+    if (weekWordsError) throw weekWordsError;
 
     // Entries this week
-    const thisWeekEntries = db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM journal_entries 
-      WHERE created_at >= datetime('now', '-7 days')
-    `).get();
+    const { count: thisWeekEntries, error: weekEntriesError } = await supabase
+      .from('journal_entries')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', sevenDaysAgo.toISOString());
+
+    if (weekEntriesError) throw weekEntriesError;
 
     res.json({
       success: true,
       data: {
         vocabulary: {
-          total: vocabCount.count,
-          thisWeek: thisWeekWords.count
+          total: vocabCount || 0,
+          thisWeek: thisWeekWords || 0
         },
         entries: {
-          total: entriesCount.count,
-          thisWeek: thisWeekEntries.count
+          total: entriesCount || 0,
+          thisWeek: thisWeekEntries || 0
         },
         words: {
-          total: totalWords.total || 0
+          total: totalWords
         },
         time: {
-          total: totalTime.total || 0
+          total: totalTime
         }
       }
     });
@@ -66,16 +102,17 @@ router.get('/stats', (req, res) => {
  * GET /api/progress/streak
  * Calculate current learning streak
  */
-router.get('/streak', (req, res) => {
+router.get('/streak', async (req, res) => {
   try {
-    // Get all dates with entries, ordered by date descending
-    const dates = db.prepare(`
-      SELECT DISTINCT date(created_at) as date 
-      FROM journal_entries 
-      ORDER BY date DESC
-    `).all();
+    // Get all distinct dates with entries, ordered by date descending
+    const { data: entries, error } = await supabase
+      .from('journal_entries')
+      .select('created_at')
+      .order('created_at', { ascending: false });
 
-    if (dates.length === 0) {
+    if (error) throw error;
+
+    if (!entries || entries.length === 0) {
       return res.json({
         success: true,
         data: {
@@ -86,6 +123,9 @@ router.get('/streak', (req, res) => {
       });
     }
 
+    // Extract unique dates
+    const dates = [...new Set(entries.map(e => e.created_at.split('T')[0]))].sort().reverse();
+
     let currentStreak = 0;
     let longestStreak = 0;
     let tempStreak = 0;
@@ -93,9 +133,9 @@ router.get('/streak', (req, res) => {
     today.setHours(0, 0, 0, 0);
 
     // Check if there's an entry today or yesterday
-    const lastEntryDate = new Date(dates[0].date);
+    const lastEntryDate = new Date(dates[0]);
     lastEntryDate.setHours(0, 0, 0, 0);
-    
+
     const daysDiff = Math.floor((today - lastEntryDate) / (1000 * 60 * 60 * 24));
 
     // If last entry was today or yesterday, start counting streak
@@ -105,8 +145,8 @@ router.get('/streak', (req, res) => {
 
       // Count consecutive days backwards
       for (let i = 1; i < dates.length; i++) {
-        const currentDate = new Date(dates[i - 1].date);
-        const prevDate = new Date(dates[i].date);
+        const currentDate = new Date(dates[i - 1]);
+        const prevDate = new Date(dates[i]);
         currentDate.setHours(0, 0, 0, 0);
         prevDate.setHours(0, 0, 0, 0);
 
@@ -124,8 +164,8 @@ router.get('/streak', (req, res) => {
     // Calculate longest streak
     tempStreak = 1;
     for (let i = 1; i < dates.length; i++) {
-      const currentDate = new Date(dates[i - 1].date);
-      const prevDate = new Date(dates[i].date);
+      const currentDate = new Date(dates[i - 1]);
+      const prevDate = new Date(dates[i]);
       currentDate.setHours(0, 0, 0, 0);
       prevDate.setHours(0, 0, 0, 0);
 
@@ -146,7 +186,7 @@ router.get('/streak', (req, res) => {
       data: {
         current: currentStreak,
         longest: longestStreak,
-        lastEntry: dates[0].date
+        lastEntry: dates[0]
       }
     });
   } catch (error) {
@@ -162,32 +202,32 @@ router.get('/streak', (req, res) => {
  * GET /api/progress/history
  * Get daily progress history
  */
-router.get('/history', (req, res) => {
+router.get('/history', async (req, res) => {
   try {
     const days = parseInt(req.query.days) || 7;
 
-    const history = db.prepare(`
-      SELECT 
-        date,
-        words_learned,
-        entries_written,
-        minutes_practiced
-      FROM progress_stats
-      WHERE date >= date('now', '-' || ? || ' days')
-      ORDER BY date ASC
-    `).all(days);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const { data: history, error } = await supabase
+      .from('progress_stats')
+      .select('date, words_learned, entries_written, minutes_practiced')
+      .gte('date', startDate.toISOString().split('T')[0])
+      .order('date', { ascending: true });
+
+    if (error) throw error;
 
     // Fill in missing dates with zeros
     const result = [];
     const today = new Date();
-    
+
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
 
-      const existing = history.find(h => h.date === dateStr);
-      
+      const existing = history?.find(h => h.date === dateStr);
+
       result.push({
         date: dateStr,
         words_learned: existing ? existing.words_learned : 0,
@@ -213,20 +253,20 @@ router.get('/history', (req, res) => {
  * GET /api/progress/chart-data
  * Get formatted data for Chart.js
  */
-router.get('/chart-data', (req, res) => {
+router.get('/chart-data', async (req, res) => {
   try {
     const days = parseInt(req.query.days) || 7;
 
-    const history = db.prepare(`
-      SELECT 
-        date,
-        words_learned,
-        entries_written,
-        minutes_practiced
-      FROM progress_stats
-      WHERE date >= date('now', '-' || ? || ' days')
-      ORDER BY date ASC
-    `).all(days);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const { data: history, error } = await supabase
+      .from('progress_stats')
+      .select('date, words_learned, entries_written, minutes_practiced')
+      .gte('date', startDate.toISOString().split('T')[0])
+      .order('date', { ascending: true });
+
+    if (error) throw error;
 
     // Create labels and data arrays
     const labels = [];
@@ -244,7 +284,7 @@ router.get('/chart-data', (req, res) => {
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       labels.push(dayNames[date.getDay()]);
 
-      const existing = history.find(h => h.date === dateStr);
+      const existing = history?.find(h => h.date === dateStr);
       wordsData.push(existing ? existing.words_learned : 0);
       entriesData.push(existing ? existing.entries_written : 0);
       minutesData.push(existing ? existing.minutes_practiced : 0);

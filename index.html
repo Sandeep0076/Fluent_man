@@ -41,7 +41,6 @@
             background: linear-gradient(135deg, #f6f8fd 0%, #f1f0ff 100%);
             color: var(--text-primary);
             min-height: 100vh;
-            overflow-x: hidden;
             position: relative;
         }
 
@@ -202,7 +201,7 @@
     </style>
 </head>
 
-<body class="flex flex-col md:flex-row min-h-screen relative overflow-hidden">
+<body class="flex flex-col md:flex-row min-h-screen relative">
 
     <!-- Background Blobs (Soft Pastels) -->
     <div class="blob blob-1"></div>
@@ -223,7 +222,7 @@
     </div>
 
     <!-- Floating Glass Sidebar (Desktop) -->
-    <nav id="sidebar" class="hidden md:flex flex-col w-72 glass-sidebar h-screen sticky top-0 z-40 p-6">
+    <nav id="sidebar" class="hidden md:flex flex-col w-72 glass-sidebar h-screen sticky top-0 z-40 p-6 pt-8">
         <div class="mb-10 px-2">
             <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight">DeutschTagebuch</h1>
             <p class="text-xs text-slate-400 mt-1 uppercase tracking-widest font-bold">Daily Fluent System</p>
@@ -295,7 +294,7 @@
     </div>
 
     <!-- Main Content Area -->
-    <main class="flex-1 h-[calc(100vh-70px)] md:h-screen overflow-y-auto overflow-x-hidden relative p-4 md:p-10">
+    <main class="flex-1 h-screen overflow-y-auto relative p-6 md:p-12 pt-6 md:pt-16">
 
         <!-- SECTION: DASHBOARD -->
         <section id="dashboard" class="max-w-7xl mx-auto animate-fade-in space-y-8">
@@ -529,7 +528,8 @@
                         + Add Word
                     </button>
                 </div>
-                <p class="text-xs text-slate-400 mt-2">💡 Tip: Leave German translation blank to auto-translate from English to German</p>
+                <p class="text-xs text-slate-400 mt-2">💡 Tip: Leave German translation blank to auto-translate from
+                    English to German</p>
             </div>
 
             <div id="vocab-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

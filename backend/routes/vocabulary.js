@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database');
+const supabase = require('../supabase');
 const { getVocabularyStats } = require('../services/vocabulary-extractor');
 const { translateToGerman } = require('../services/translation');
 
@@ -8,41 +8,41 @@ const { translateToGerman } = require('../services/translation');
  * GET /api/vocabulary
  * Get all vocabulary words with optional filtering and sorting
  */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { sort, search } = req.query;
-    let query = 'SELECT * FROM vocabulary';
-    const params = [];
+    let query = supabase.from('vocabulary').select('*');
 
     // Add search filter
     if (search) {
-      query += ' WHERE word LIKE ?';
-      params.push(`%${search}%`);
+      query = query.ilike('word', `%${search}%`);
     }
 
     // Add sorting
     switch (sort) {
       case 'az':
-        query += ' ORDER BY word ASC';
+        query = query.order('word', { ascending: true });
         break;
       case 'za':
-        query += ' ORDER BY word DESC';
+        query = query.order('word', { ascending: false });
         break;
       case 'frequency':
-        query += ' ORDER BY frequency DESC';
+        query = query.order('frequency', { ascending: false });
         break;
       case 'newest':
       default:
-        query += ' ORDER BY first_seen DESC';
+        query = query.order('first_seen', { ascending: false });
         break;
     }
 
-    const words = db.prepare(query).all(...params);
+    const { data: words, error } = await query;
+
+    if (error) throw error;
 
     res.json({
       success: true,
-      data: words,
-      count: words.length
+      data: words || [],
+      count: words ? words.length : 0
     });
   } catch (error) {
     console.error('Error fetching vocabulary:', error);
@@ -57,9 +57,9 @@ router.get('/', (req, res) => {
  * GET /api/vocabulary/stats
  * Get vocabulary statistics
  */
-router.get('/stats', (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
-    const stats = getVocabularyStats();
+    const stats = await getVocabularyStats();
 
     res.json({
       success: true,
@@ -106,8 +106,12 @@ router.post('/', async (req, res) => {
 
     // Check if German word already exists in vocabulary
     if (germanTranslation) {
-      const existing = db.prepare('SELECT * FROM vocabulary WHERE LOWER(word) = LOWER(?)').get(germanTranslation);
-      
+      const { data: existing } = await supabase
+        .from('vocabulary')
+        .select('*')
+        .ilike('word', germanTranslation)
+        .single();
+
       if (existing) {
         return res.status(409).json({
           success: false,
@@ -118,19 +122,22 @@ router.post('/', async (req, res) => {
     }
 
     // Insert new word (German word with English meaning)
-    const result = db.prepare(`
-      INSERT INTO vocabulary (word, meaning, first_seen, frequency, last_reviewed)
-      VALUES (?, ?, datetime('now'), 1, datetime('now'))
-    `).run(germanTranslation || englishWord, englishWord);
+    const { data: newWord, error } = await supabase
+      .from('vocabulary')
+      .insert({
+        word: germanTranslation || englishWord,
+        meaning: englishWord,
+        frequency: 1
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     res.status(201).json({
       success: true,
       data: {
-        id: result.lastInsertRowid,
-        word: germanTranslation || englishWord,
-        meaning: englishWord,
-        first_seen: new Date().toISOString(),
-        frequency: 1,
+        ...newWord,
         translated: !meaning // Indicates if auto-translation was used
       }
     });
@@ -147,16 +154,14 @@ router.post('/', async (req, res) => {
  * DELETE /api/vocabulary/:id
  * Delete a vocabulary word
  */
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const result = db.prepare('DELETE FROM vocabulary WHERE id = ?').run(req.params.id);
+    const { error } = await supabase
+      .from('vocabulary')
+      .delete()
+      .eq('id', req.params.id);
 
-    if (result.changes === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Vocabulary word not found'
-      });
-    }
+    if (error) throw error;
 
     res.json({
       success: true,
@@ -177,13 +182,20 @@ router.delete('/:id', (req, res) => {
  */
 router.get('/:id/meaning', async (req, res) => {
   try {
-    const word = db.prepare('SELECT * FROM vocabulary WHERE id = ?').get(req.params.id);
+    const { data: word, error } = await supabase
+      .from('vocabulary')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
 
-    if (!word) {
-      return res.status(404).json({
-        success: false,
-        error: 'Vocabulary word not found'
-      });
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          error: 'Vocabulary word not found'
+        });
+      }
+      throw error;
     }
 
     // If meaning already exists, return it
@@ -200,9 +212,12 @@ router.get('/:id/meaning', async (req, res) => {
     // Otherwise, fetch translation
     try {
       const meaning = await translateToGerman(word.word);
-      
+
       // Update database with the fetched meaning
-      db.prepare('UPDATE vocabulary SET meaning = ? WHERE id = ?').run(meaning, req.params.id);
+      await supabase
+        .from('vocabulary')
+        .update({ meaning })
+        .eq('id', req.params.id);
 
       res.json({
         success: true,
@@ -231,20 +246,14 @@ router.get('/:id/meaning', async (req, res) => {
  * PUT /api/vocabulary/:id/review
  * Mark a word as reviewed (updates last_reviewed timestamp)
  */
-router.put('/:id/review', (req, res) => {
+router.put('/:id/review', async (req, res) => {
   try {
-    const result = db.prepare(`
-      UPDATE vocabulary
-      SET last_reviewed = datetime('now')
-      WHERE id = ?
-    `).run(req.params.id);
+    const { error } = await supabase
+      .from('vocabulary')
+      .update({ last_reviewed: new Date().toISOString() })
+      .eq('id', req.params.id);
 
-    if (result.changes === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Vocabulary word not found'
-      });
-    }
+    if (error) throw error;
 
     res.json({
       success: true,

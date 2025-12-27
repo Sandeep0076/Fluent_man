@@ -65,7 +65,7 @@ app.listen(PORT, () => {
   console.log('');
   console.log(`🚀 Server running on: http://localhost:${PORT}`);
   console.log(`📊 API endpoints: http://localhost:${PORT}/api`);
-  console.log(`💾 Database: deutschtagebuch.db`);
+  console.log(`💾 Database: Supabase (PostgreSQL)`);
   console.log('');
   console.log('Available API endpoints:');
   console.log('  - GET  /api/health');

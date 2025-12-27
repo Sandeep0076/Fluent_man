@@ -1,14 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database');
+const supabase = require('../supabase');
 
 /**
  * GET /api/settings
  * Get user settings
  */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const settings = db.prepare('SELECT * FROM user_settings LIMIT 1').get();
+    const { data: settings, error } = await supabase
+      .from('user_settings')
+      .select('*')
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
 
     if (!settings) {
       // Return default settings if none exist
@@ -39,7 +47,7 @@ router.get('/', (req, res) => {
  * PUT /api/settings
  * Update user settings
  */
-router.put('/', (req, res) => {
+router.put('/', async (req, res) => {
   try {
     const { daily_goal_minutes, daily_sentence_goal, theme } = req.body;
 
@@ -72,50 +80,63 @@ router.put('/', (req, res) => {
     }
 
     // Check if settings exist
-    const existing = db.prepare('SELECT * FROM user_settings LIMIT 1').get();
+    const { data: existing, error: fetchError } = await supabase
+      .from('user_settings')
+      .select('*')
+      .limit(1)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      throw fetchError;
+    }
 
     if (existing) {
       // Update existing settings
-      const updates = [];
-      const params = [];
+      const updates = {};
 
       if (daily_goal_minutes !== undefined) {
-        updates.push('daily_goal_minutes = ?');
-        params.push(daily_goal_minutes);
+        updates.daily_goal_minutes = daily_goal_minutes;
       }
       if (daily_sentence_goal !== undefined) {
-        updates.push('daily_sentence_goal = ?');
-        params.push(daily_sentence_goal);
+        updates.daily_sentence_goal = daily_sentence_goal;
       }
       if (theme !== undefined) {
-        updates.push('theme = ?');
-        params.push(theme);
+        updates.theme = theme;
       }
 
-      if (updates.length > 0) {
-        params.push(existing.id);
-        db.prepare(`UPDATE user_settings SET ${updates.join(', ')} WHERE id = ?`).run(...params);
-      }
+      if (Object.keys(updates).length > 0) {
+        const { data: updated, error } = await supabase
+          .from('user_settings')
+          .update(updates)
+          .eq('id', existing.id)
+          .select()
+          .single();
 
-      // Fetch updated settings
-      const updated = db.prepare('SELECT * FROM user_settings WHERE id = ?').get(existing.id);
-      
-      res.json({
-        success: true,
-        data: updated
-      });
+        if (error) throw error;
+
+        res.json({
+          success: true,
+          data: updated
+        });
+      } else {
+        res.json({
+          success: true,
+          data: existing
+        });
+      }
     } else {
       // Create new settings
-      const result = db.prepare(`
-        INSERT INTO user_settings (daily_goal_minutes, daily_sentence_goal, theme)
-        VALUES (?, ?, ?)
-      `).run(
-        daily_goal_minutes || 60,
-        daily_sentence_goal || 10,
-        theme || 'light'
-      );
+      const { data: newSettings, error } = await supabase
+        .from('user_settings')
+        .insert({
+          daily_goal_minutes: daily_goal_minutes || 60,
+          daily_sentence_goal: daily_sentence_goal || 10,
+          theme: theme || 'light'
+        })
+        .select()
+        .single();
 
-      const newSettings = db.prepare('SELECT * FROM user_settings WHERE id = ?').get(result.lastInsertRowid);
+      if (error) throw error;
 
       res.status(201).json({
         success: true,

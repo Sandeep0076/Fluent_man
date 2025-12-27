@@ -1,10 +1,10 @@
-const db = require('../database');
+const supabase = require('../supabase');
 const { translateToGerman } = require('./translation');
 
 // Common German stop words to filter out
 const STOP_WORDS = new Set([
-  'ich', 'du', 'er', 'sie', 'es', 'wir', 'ihr', 'und', 'aber', 'oder', 
-  'denn', 'ist', 'bin', 'sind', 'war', 'waren', 'das', 'der', 'die', 
+  'ich', 'du', 'er', 'sie', 'es', 'wir', 'ihr', 'und', 'aber', 'oder',
+  'denn', 'ist', 'bin', 'sind', 'war', 'waren', 'das', 'der', 'die',
   'den', 'dem', 'des', 'eine', 'ein', 'einer', 'eines', 'einem', 'einen',
   'zu', 'in', 'im', 'auf', 'mit', 'von', 'für', 'an', 'bei', 'nach',
   'aus', 'um', 'über', 'unter', 'durch', 'vor', 'hinter', 'neben',
@@ -26,7 +26,7 @@ async function extractVocabulary(germanText) {
 
   // Remove punctuation and split into words
   const rawWords = germanText
-    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()„""‚''»«›‹?]/g, '')
+    .replace(/[.,\/#!$%\^\&\*;:{}=\-_`~()„""‚''»«›‹?]/g, '')
     .split(/\s+/)
     .filter(word => word.length > 0);
 
@@ -45,15 +45,21 @@ async function extractVocabulary(germanText) {
 
     try {
       // Check if word already exists
-      const existing = db.prepare('SELECT id, frequency FROM vocabulary WHERE LOWER(word) = LOWER(?)').get(cleanWord);
+      const { data: existing, error: fetchError } = await supabase
+        .from('vocabulary')
+        .select('id, frequency')
+        .ilike('word', cleanWord)
+        .single();
 
       if (existing) {
         // Update frequency and last_reviewed
-        db.prepare(`
-          UPDATE vocabulary
-          SET frequency = frequency + 1, last_reviewed = ?
-          WHERE id = ?
-        `).run(today, existing.id);
+        await supabase
+          .from('vocabulary')
+          .update({
+            frequency: existing.frequency + 1,
+            last_reviewed: today
+          })
+          .eq('id', existing.id);
       } else {
         // Try to get meaning for new words (but don't block if it fails)
         let meaning = null;
@@ -67,17 +73,26 @@ async function extractVocabulary(germanText) {
         }
 
         // Insert new word with meaning
-        const result = db.prepare(`
-          INSERT INTO vocabulary (word, meaning, first_seen, frequency, last_reviewed)
-          VALUES (?, ?, ?, 1, ?)
-        `).run(cleanWord, meaning, today, today);
+        const { data: newWord, error } = await supabase
+          .from('vocabulary')
+          .insert({
+            word: cleanWord,
+            meaning: meaning,
+            first_seen: today,
+            frequency: 1,
+            last_reviewed: today
+          })
+          .select()
+          .single();
 
-        newWords.push({
-          id: result.lastInsertRowid,
-          word: cleanWord,
-          meaning: meaning,
-          first_seen: today
-        });
+        if (!error && newWord) {
+          newWords.push({
+            id: newWord.id,
+            word: cleanWord,
+            meaning: meaning,
+            first_seen: today
+          });
+        }
       }
     } catch (error) {
       console.error(`Error processing word "${cleanWord}":`, error.message);
@@ -89,35 +104,59 @@ async function extractVocabulary(germanText) {
 
 /**
  * Get vocabulary statistics
- * @returns {Object} Statistics about vocabulary
+ * @returns {Promise<Object>} Statistics about vocabulary
  */
-function getVocabularyStats() {
-  const total = db.prepare('SELECT COUNT(*) as count FROM vocabulary').get();
-  
-  const thisWeek = db.prepare(`
-    SELECT COUNT(*) as count 
-    FROM vocabulary 
-    WHERE first_seen >= date('now', '-7 days')
-  `).get();
+async function getVocabularyStats() {
+  // Total vocabulary
+  const { count: total, error: totalError } = await supabase
+    .from('vocabulary')
+    .select('*', { count: 'exact', head: true });
 
-  const thisMonth = db.prepare(`
-    SELECT COUNT(*) as count 
-    FROM vocabulary 
-    WHERE first_seen >= date('now', '-30 days')
-  `).get();
+  if (totalError) throw totalError;
 
-  const avgPerWeek = db.prepare(`
-    SELECT 
-      CAST(COUNT(*) AS FLOAT) / 
-      CAST(MAX(1, (julianday('now') - julianday(MIN(first_seen))) / 7) AS FLOAT) as avg
-    FROM vocabulary
-  `).get();
+  // This week
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const { count: thisWeek, error: weekError } = await supabase
+    .from('vocabulary')
+    .select('*', { count: 'exact', head: true })
+    .gte('first_seen', sevenDaysAgo.toISOString());
+
+  if (weekError) throw weekError;
+
+  // This month
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const { count: thisMonth, error: monthError } = await supabase
+    .from('vocabulary')
+    .select('*', { count: 'exact', head: true })
+    .gte('first_seen', thirtyDaysAgo.toISOString());
+
+  if (monthError) throw monthError;
+
+  // Average per week (calculate from all vocabulary)
+  const { data: allVocab, error: allError } = await supabase
+    .from('vocabulary')
+    .select('first_seen')
+    .order('first_seen', { ascending: true });
+
+  if (allError) throw allError;
+
+  let averagePerWeek = 0;
+  if (allVocab && allVocab.length > 0) {
+    const firstDate = new Date(allVocab[0].first_seen);
+    const now = new Date();
+    const weeksSinceStart = Math.max(1, (now - firstDate) / (1000 * 60 * 60 * 24 * 7));
+    averagePerWeek = Math.round(allVocab.length / weeksSinceStart);
+  }
 
   return {
-    total: total.count,
-    thisWeek: thisWeek.count,
-    thisMonth: thisMonth.count,
-    averagePerWeek: Math.round(avgPerWeek.avg || 0)
+    total: total || 0,
+    thisWeek: thisWeek || 0,
+    thisMonth: thisMonth || 0,
+    averagePerWeek
   };
 }
 

@@ -1,42 +1,73 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database');
+const supabase = require('../supabase');
 
 /**
  * GET /api/data/export
  * Export all user data as JSON
  */
-router.get('/export', (req, res) => {
+router.get('/export', async (req, res) => {
   try {
     // Fetch all data from all tables
-    const journalEntries = db.prepare('SELECT * FROM journal_entries ORDER BY created_at').all();
-    const vocabulary = db.prepare('SELECT * FROM vocabulary ORDER BY first_seen').all();
-    const customPhrases = db.prepare('SELECT * FROM custom_phrases ORDER BY created_at').all();
-    const settings = db.prepare('SELECT * FROM user_settings LIMIT 1').get();
-    const progressStats = db.prepare('SELECT * FROM progress_stats ORDER BY date').all();
+    const { data: journalEntries, error: journalError } = await supabase
+      .from('journal_entries')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (journalError) throw journalError;
+
+    const { data: vocabulary, error: vocabError } = await supabase
+      .from('vocabulary')
+      .select('*')
+      .order('first_seen', { ascending: true });
+
+    if (vocabError) throw vocabError;
+
+    const { data: customPhrases, error: phrasesError } = await supabase
+      .from('custom_phrases')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (phrasesError) throw phrasesError;
+
+    const { data: settings, error: settingsError } = await supabase
+      .from('user_settings')
+      .select('*')
+      .limit(1)
+      .single();
+
+    // Ignore error if no settings exist
+    const settingsData = settingsError ? {} : settings;
+
+    const { data: progressStats, error: statsError } = await supabase
+      .from('progress_stats')
+      .select('*')
+      .order('date', { ascending: true });
+
+    if (statsError) throw statsError;
 
     const exportData = {
       version: '1.0',
       exportDate: new Date().toISOString(),
       data: {
-        journalEntries,
-        vocabulary,
-        customPhrases,
-        settings: settings || {},
-        progressStats
+        journalEntries: journalEntries || [],
+        vocabulary: vocabulary || [],
+        customPhrases: customPhrases || [],
+        settings: settingsData,
+        progressStats: progressStats || []
       },
       metadata: {
-        totalEntries: journalEntries.length,
-        totalVocabulary: vocabulary.length,
-        totalCustomPhrases: customPhrases.length,
-        totalProgressDays: progressStats.length
+        totalEntries: journalEntries?.length || 0,
+        totalVocabulary: vocabulary?.length || 0,
+        totalCustomPhrases: customPhrases?.length || 0,
+        totalProgressDays: progressStats?.length || 0
       }
     };
 
     // Set headers for file download
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename=deutschtagebuch-backup-${new Date().toISOString().split('T')[0]}.json`);
-    
+
     res.json(exportData);
   } catch (error) {
     console.error('Error exporting data:', error);
@@ -51,7 +82,7 @@ router.get('/export', (req, res) => {
  * POST /api/data/import
  * Import data from JSON backup
  */
-router.post('/import', (req, res) => {
+router.post('/import', async (req, res) => {
   try {
     const { data, mode } = req.body;
 
@@ -79,126 +110,118 @@ router.post('/import', (req, res) => {
       errors: []
     };
 
-    // Start transaction
-    const transaction = db.transaction(() => {
-      // If replace mode, clear existing data
-      if (importMode === 'replace') {
-        db.prepare('DELETE FROM journal_entries').run();
-        db.prepare('DELETE FROM vocabulary').run();
-        db.prepare('DELETE FROM custom_phrases').run();
-        db.prepare('DELETE FROM progress_stats').run();
-      }
+    // If replace mode, clear existing data
+    if (importMode === 'replace') {
+      await supabase.from('journal_entries').delete().neq('id', 0);
+      await supabase.from('vocabulary').delete().neq('id', 0);
+      await supabase.from('custom_phrases').delete().neq('id', 0);
+      await supabase.from('progress_stats').delete().neq('id', 0);
+    }
 
-      // Import journal entries
-      if (data.data.journalEntries && Array.isArray(data.data.journalEntries)) {
-        const insertEntry = db.prepare(`
-          INSERT OR IGNORE INTO journal_entries (english_text, german_text, created_at, word_count, session_duration)
-          VALUES (?, ?, ?, ?, ?)
-        `);
+    // Import journal entries
+    if (data.data.journalEntries && Array.isArray(data.data.journalEntries)) {
+      for (const entry of data.data.journalEntries) {
+        try {
+          const { error } = await supabase
+            .from('journal_entries')
+            .insert({
+              english_text: entry.english_text,
+              german_text: entry.german_text,
+              created_at: entry.created_at,
+              word_count: entry.word_count || 0,
+              session_duration: entry.session_duration || 0
+            });
 
-        for (const entry of data.data.journalEntries) {
-          try {
-            const result = insertEntry.run(
-              entry.english_text,
-              entry.german_text,
-              entry.created_at,
-              entry.word_count || 0,
-              entry.session_duration || 0
-            );
-            if (result.changes > 0) stats.journalEntries++;
-          } catch (err) {
-            stats.errors.push(`Journal entry error: ${err.message}`);
-          }
+          if (!error) stats.journalEntries++;
+        } catch (err) {
+          stats.errors.push(`Journal entry error: ${err.message}`);
         }
       }
+    }
 
-      // Import vocabulary
-      if (data.data.vocabulary && Array.isArray(data.data.vocabulary)) {
-        const insertVocab = db.prepare(`
-          INSERT OR IGNORE INTO vocabulary (word, first_seen, frequency, last_reviewed)
-          VALUES (?, ?, ?, ?)
-        `);
+    // Import vocabulary
+    if (data.data.vocabulary && Array.isArray(data.data.vocabulary)) {
+      for (const word of data.data.vocabulary) {
+        try {
+          const { error } = await supabase
+            .from('vocabulary')
+            .insert({
+              word: word.word,
+              meaning: word.meaning,
+              first_seen: word.first_seen,
+              frequency: word.frequency || 1,
+              last_reviewed: word.last_reviewed
+            });
 
-        for (const word of data.data.vocabulary) {
-          try {
-            const result = insertVocab.run(
-              word.word,
-              word.first_seen,
-              word.frequency || 1,
-              word.last_reviewed
-            );
-            if (result.changes > 0) stats.vocabulary++;
-          } catch (err) {
-            stats.errors.push(`Vocabulary error: ${err.message}`);
-          }
+          if (!error) stats.vocabulary++;
+        } catch (err) {
+          stats.errors.push(`Vocabulary error: ${err.message}`);
         }
       }
+    }
 
-      // Import custom phrases
-      if (data.data.customPhrases && Array.isArray(data.data.customPhrases)) {
-        const insertPhrase = db.prepare(`
-          INSERT OR IGNORE INTO custom_phrases (english, german, created_at, times_reviewed)
-          VALUES (?, ?, ?, ?)
-        `);
+    // Import custom phrases
+    if (data.data.customPhrases && Array.isArray(data.data.customPhrases)) {
+      for (const phrase of data.data.customPhrases) {
+        try {
+          const { error } = await supabase
+            .from('custom_phrases')
+            .insert({
+              english: phrase.english,
+              german: phrase.german,
+              created_at: phrase.created_at,
+              times_reviewed: phrase.times_reviewed || 0
+            });
 
-        for (const phrase of data.data.customPhrases) {
-          try {
-            const result = insertPhrase.run(
-              phrase.english,
-              phrase.german,
-              phrase.created_at,
-              phrase.times_reviewed || 0
-            );
-            if (result.changes > 0) stats.customPhrases++;
-          } catch (err) {
-            stats.errors.push(`Phrase error: ${err.message}`);
-          }
+          if (!error) stats.customPhrases++;
+        } catch (err) {
+          stats.errors.push(`Phrase error: ${err.message}`);
         }
       }
+    }
 
-      // Import progress stats
-      if (data.data.progressStats && Array.isArray(data.data.progressStats)) {
-        const insertStats = db.prepare(`
-          INSERT OR REPLACE INTO progress_stats (date, words_learned, entries_written, minutes_practiced)
-          VALUES (?, ?, ?, ?)
-        `);
+    // Import progress stats
+    if (data.data.progressStats && Array.isArray(data.data.progressStats)) {
+      for (const stat of data.data.progressStats) {
+        try {
+          // Use upsert to handle duplicates
+          const { error } = await supabase
+            .from('progress_stats')
+            .upsert({
+              date: stat.date,
+              words_learned: stat.words_learned || 0,
+              entries_written: stat.entries_written || 0,
+              minutes_practiced: stat.minutes_practiced || 0
+            }, {
+              onConflict: 'date'
+            });
 
-        for (const stat of data.data.progressStats) {
-          try {
-            const result = insertStats.run(
-              stat.date,
-              stat.words_learned || 0,
-              stat.entries_written || 0,
-              stat.minutes_practiced || 0
-            );
-            if (result.changes > 0) stats.progressStats++;
-          } catch (err) {
-            stats.errors.push(`Progress stats error: ${err.message}`);
-          }
+          if (!error) stats.progressStats++;
+        } catch (err) {
+          stats.errors.push(`Progress stats error: ${err.message}`);
         }
       }
+    }
 
-      // Import settings
-      if (data.data.settings && typeof data.data.settings === 'object') {
-        const existing = db.prepare('SELECT * FROM user_settings LIMIT 1').get();
-        
-        if (existing) {
-          db.prepare(`
-            UPDATE user_settings 
-            SET daily_goal_minutes = ?, daily_sentence_goal = ?, theme = ?
-            WHERE id = ?
-          `).run(
-            data.data.settings.daily_goal_minutes || 60,
-            data.data.settings.daily_sentence_goal || 10,
-            data.data.settings.theme || 'light',
-            existing.id
-          );
-        }
+    // Import settings
+    if (data.data.settings && typeof data.data.settings === 'object') {
+      const { data: existing } = await supabase
+        .from('user_settings')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (existing) {
+        await supabase
+          .from('user_settings')
+          .update({
+            daily_goal_minutes: data.data.settings.daily_goal_minutes || 60,
+            daily_sentence_goal: data.data.settings.daily_sentence_goal || 10,
+            theme: data.data.settings.theme || 'light'
+          })
+          .eq('id', existing.id);
       }
-    });
-
-    // Execute transaction
-    transaction();
+    }
 
     res.json({
       success: true,
@@ -227,7 +250,7 @@ router.post('/import', (req, res) => {
  * DELETE /api/data/clear
  * Clear all user data (with confirmation)
  */
-router.delete('/clear', (req, res) => {
+router.delete('/clear', async (req, res) => {
   try {
     const { confirm } = req.body;
 
@@ -239,10 +262,10 @@ router.delete('/clear', (req, res) => {
     }
 
     // Clear all tables
-    db.prepare('DELETE FROM journal_entries').run();
-    db.prepare('DELETE FROM vocabulary').run();
-    db.prepare('DELETE FROM custom_phrases').run();
-    db.prepare('DELETE FROM progress_stats').run();
+    await supabase.from('journal_entries').delete().neq('id', 0);
+    await supabase.from('vocabulary').delete().neq('id', 0);
+    await supabase.from('custom_phrases').delete().neq('id', 0);
+    await supabase.from('progress_stats').delete().neq('id', 0);
 
     res.json({
       success: true,

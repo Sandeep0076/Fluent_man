@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database');
+const supabase = require('../supabase');
 
 // Built-in common phrases
 const BUILT_IN_PHRASES = [
@@ -18,17 +18,21 @@ const BUILT_IN_PHRASES = [
  * GET /api/phrases
  * Get all phrases (built-in + custom)
  */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     // Get custom phrases from database
-    const customPhrases = db.prepare(`
-      SELECT id, english, german, created_at, times_reviewed, 0 as builtin
-      FROM custom_phrases 
-      ORDER BY created_at DESC
-    `).all();
+    const { data: customPhrases, error } = await supabase
+      .from('custom_phrases')
+      .select('id, english, german, created_at, times_reviewed')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Add builtin flag to custom phrases
+    const customWithFlag = (customPhrases || []).map(p => ({ ...p, builtin: false }));
 
     // Combine built-in and custom phrases
-    const allPhrases = [...BUILT_IN_PHRASES, ...customPhrases];
+    const allPhrases = [...BUILT_IN_PHRASES, ...customWithFlag];
 
     res.json({
       success: true,
@@ -36,7 +40,7 @@ router.get('/', (req, res) => {
       count: {
         total: allPhrases.length,
         builtin: BUILT_IN_PHRASES.length,
-        custom: customPhrases.length
+        custom: customWithFlag.length
       }
     });
   } catch (error) {
@@ -52,7 +56,7 @@ router.get('/', (req, res) => {
  * POST /api/phrases
  * Add a custom phrase
  */
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { english, german } = req.body;
 
@@ -82,10 +86,11 @@ router.post('/', (req, res) => {
     }
 
     // Check if phrase already exists
-    const existing = db.prepare(`
-      SELECT * FROM custom_phrases 
-      WHERE LOWER(english) = LOWER(?) OR LOWER(german) = LOWER(?)
-    `).get(cleanEnglish, cleanGerman);
+    const { data: existing } = await supabase
+      .from('custom_phrases')
+      .select('*')
+      .or(`english.ilike.${cleanEnglish},german.ilike.${cleanGerman}`)
+      .single();
 
     if (existing) {
       return res.status(409).json({
@@ -96,19 +101,22 @@ router.post('/', (req, res) => {
     }
 
     // Insert new phrase
-    const result = db.prepare(`
-      INSERT INTO custom_phrases (english, german, created_at, times_reviewed)
-      VALUES (?, ?, datetime('now'), 0)
-    `).run(cleanEnglish, cleanGerman);
+    const { data: newPhrase, error } = await supabase
+      .from('custom_phrases')
+      .insert({
+        english: cleanEnglish,
+        german: cleanGerman,
+        times_reviewed: 0
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     res.status(201).json({
       success: true,
       data: {
-        id: result.lastInsertRowid,
-        english: cleanEnglish,
-        german: cleanGerman,
-        created_at: new Date().toISOString(),
-        times_reviewed: 0,
+        ...newPhrase,
         builtin: false
       }
     });
@@ -125,16 +133,14 @@ router.post('/', (req, res) => {
  * DELETE /api/phrases/:id
  * Delete a custom phrase
  */
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const result = db.prepare('DELETE FROM custom_phrases WHERE id = ?').run(req.params.id);
+    const { error } = await supabase
+      .from('custom_phrases')
+      .delete()
+      .eq('id', req.params.id);
 
-    if (result.changes === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Custom phrase not found'
-      });
-    }
+    if (error) throw error;
 
     res.json({
       success: true,
@@ -153,20 +159,32 @@ router.delete('/:id', (req, res) => {
  * PUT /api/phrases/:id/review
  * Increment review count for a phrase
  */
-router.put('/:id/review', (req, res) => {
+router.put('/:id/review', async (req, res) => {
   try {
-    const result = db.prepare(`
-      UPDATE custom_phrases 
-      SET times_reviewed = times_reviewed + 1
-      WHERE id = ?
-    `).run(req.params.id);
+    // Get current times_reviewed value
+    const { data: phrase, error: fetchError } = await supabase
+      .from('custom_phrases')
+      .select('times_reviewed')
+      .eq('id', req.params.id)
+      .single();
 
-    if (result.changes === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Custom phrase not found'
-      });
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          error: 'Custom phrase not found'
+        });
+      }
+      throw fetchError;
     }
+
+    // Increment times_reviewed
+    const { error } = await supabase
+      .from('custom_phrases')
+      .update({ times_reviewed: (phrase.times_reviewed || 0) + 1 })
+      .eq('id', req.params.id);
+
+    if (error) throw error;
 
     res.json({
       success: true,
