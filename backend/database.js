@@ -82,6 +82,20 @@ function initializeDatabase() {
     `).run();
   }
 
+  // Migration: Add meaning column to vocabulary table if it doesn't exist
+  try {
+    const columns = db.prepare('PRAGMA table_info(vocabulary)').all();
+    const hasMeaning = columns.some(col => col.name === 'meaning');
+    
+    if (!hasMeaning) {
+      console.log('⚙️  Running migration: Adding meaning column to vocabulary table...');
+      db.exec('ALTER TABLE vocabulary ADD COLUMN meaning TEXT');
+      console.log('✓ Migration completed successfully');
+    }
+  } catch (error) {
+    console.error('Migration error:', error);
+  }
+
   console.log('✓ Database initialized successfully');
 }
 

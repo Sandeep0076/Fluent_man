@@ -77,6 +77,8 @@ router.get('/stats', (req, res) => {
 /**
  * POST /api/vocabulary
  * Manually add a vocabulary word
+ * Expects: English word, optionally German translation
+ * If German translation not provided, auto-translates English to German
  */
 router.post('/', async (req, res) => {
   try {
@@ -89,44 +91,47 @@ router.post('/', async (req, res) => {
       });
     }
 
-    const cleanWord = word.trim();
+    const englishWord = word.trim();
+    let germanTranslation = meaning?.trim() || null;
 
-    // Check if word already exists
-    const existing = db.prepare('SELECT * FROM vocabulary WHERE LOWER(word) = LOWER(?)').get(cleanWord);
-
-    if (existing) {
-      return res.status(409).json({
-        success: false,
-        error: 'Word already exists in vocabulary',
-        data: existing
-      });
-    }
-
-    // If meaning not provided, try to get translation
-    let wordMeaning = meaning?.trim() || null;
-    if (!wordMeaning) {
+    // If German translation not provided, auto-translate English to German
+    if (!germanTranslation) {
       try {
-        wordMeaning = await translateToGerman(cleanWord);
+        germanTranslation = await translateToGerman(englishWord);
       } catch (error) {
-        console.error('Error fetching meaning:', error);
-        // Continue without meaning if translation fails
+        console.error('Error translating to German:', error);
+        // Continue without translation if it fails
       }
     }
 
-    // Insert new word
+    // Check if German word already exists in vocabulary
+    if (germanTranslation) {
+      const existing = db.prepare('SELECT * FROM vocabulary WHERE LOWER(word) = LOWER(?)').get(germanTranslation);
+      
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          error: 'Word already exists in vocabulary',
+          data: existing
+        });
+      }
+    }
+
+    // Insert new word (German word with English meaning)
     const result = db.prepare(`
       INSERT INTO vocabulary (word, meaning, first_seen, frequency, last_reviewed)
       VALUES (?, ?, datetime('now'), 1, datetime('now'))
-    `).run(cleanWord, wordMeaning);
+    `).run(germanTranslation || englishWord, englishWord);
 
     res.status(201).json({
       success: true,
       data: {
         id: result.lastInsertRowid,
-        word: cleanWord,
-        meaning: wordMeaning,
+        word: germanTranslation || englishWord,
+        meaning: englishWord,
         first_seen: new Date().toISOString(),
-        frequency: 1
+        frequency: 1,
+        translated: !meaning // Indicates if auto-translation was used
       }
     });
   } catch (error) {

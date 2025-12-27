@@ -518,10 +518,10 @@
             <div class="glass-card p-6 rounded-[24px] !bg-white/60">
                 <h3 class="font-bold text-lg text-slate-800 mb-4">Add New Word</h3>
                 <div class="flex gap-3">
-                    <input type="text" id="new-word-input" placeholder="Enter German word..."
+                    <input type="text" id="new-word-input" placeholder="Enter English word..."
                         class="flex-1 px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all placeholder-slate-300"
                         onkeypress="if(event.key === 'Enter') addWord()">
-                    <input type="text" id="new-word-meaning" placeholder="English meaning (optional)..."
+                    <input type="text" id="new-word-meaning" placeholder="German translation (optional)..."
                         class="flex-1 px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all placeholder-slate-300"
                         onkeypress="if(event.key === 'Enter') addWord()">
                     <button onclick="addWord()"
@@ -529,7 +529,7 @@
                         + Add Word
                     </button>
                 </div>
-                <p class="text-xs text-slate-400 mt-2">Tip: Leave meaning blank to auto-translate from German to English</p>
+                <p class="text-xs text-slate-400 mt-2">💡 Tip: Leave German translation blank to auto-translate from English to German</p>
             </div>
 
             <div id="vocab-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
