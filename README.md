@@ -53,7 +53,7 @@ A full-stack web application for daily German language practice with automatic t
 
 1. **Clone or navigate to the project directory:**
    ```bash
-   cd Fluent_man
+   cd DeutschTagebuch
    ```
 
 2. **Install dependencies:**
@@ -219,7 +219,7 @@ The app uses MyMemory Translation API (free tier):
 
 ### Project Structure
 ```
-Fluent_man/
+DeutschTagebuch/
 ├── index.html              # Frontend UI
 ├── server.js               # Express server
 ├── package.json            # Dependencies
