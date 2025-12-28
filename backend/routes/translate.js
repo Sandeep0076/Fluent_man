@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { translateToGerman, translateMultipleSentences } = require('../services/translation');
+const { translateToGerman, translateMultipleSentences, translateToEnglish } = require('../services/translation');
 
 /**
  * POST /api/translate
@@ -50,7 +50,7 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Translation error:', error);
-    
+
     // Provide user-friendly error messages
     let errorMessage = 'Translation failed';
     if (error.message.includes('timeout')) {
@@ -64,6 +64,41 @@ router.post('/', async (req, res) => {
     res.status(500).json({
       success: false,
       error: errorMessage,
+      details: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/translate/reverse
+ * Translate German text to English (for manual vocabulary addition)
+ */
+router.post('/reverse', async (req, res) => {
+  try {
+    const { text } = req.body;
+
+    if (!text || typeof text !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid text is required'
+      });
+    }
+
+    const translatedText = await translateToEnglish(text);
+
+    res.json({
+      success: true,
+      data: {
+        original: text,
+        translated: translatedText,
+        language: 'en'
+      }
+    });
+  } catch (error) {
+    console.error('Reverse translation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Translation failed',
       details: error.message
     });
   }

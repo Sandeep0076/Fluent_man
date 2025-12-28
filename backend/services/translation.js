@@ -1,25 +1,24 @@
 const axios = require('axios');
-const { translateWithGemini } = require('./gemini-translation');
+const { translateWithGemini, translateToEnglish } = require('./gemini-translation');
 
 /**
- * Translate text from English to German using MyMemory API (Fallback)
- * @param {string} text - The English text to translate
- * @returns {Promise<string>} The translated German text
+ * Translate text between languages using MyMemory API (Fallback)
+ * @param {string} text - The text to translate
+ * @param {string} langpair - The language pair (e.g., 'en|de' or 'de|en')
+ * @returns {Promise<string>} The translated text
  */
-async function translateWithMyMemory(text) {
+async function translateWithMyMemory(text, langpair = 'en|de') {
   if (!text || typeof text !== 'string') {
     throw new Error('Invalid text provided for translation');
   }
 
   try {
-    // MyMemory Translation API (free, no API key required)
-    // Rate limit: 1000 requests per day
     const response = await axios.get('https://api.mymemory.translated.net/get', {
       params: {
         q: text,
-        langpair: 'en|de'
+        langpair: langpair
       },
-      timeout: 10000 // 10 second timeout
+      timeout: 10000
     });
 
     if (response.data && response.data.responseData && response.data.responseData.translatedText) {
@@ -47,12 +46,24 @@ async function translateWithMyMemory(text) {
  */
 async function translateToGerman(text) {
   try {
-    // Try Gemini first
     return await translateWithGemini(text);
   } catch (error) {
-    console.warn(`[Translation] Google Gemini failed, falling back to MyMemory. Error: ${error.message}`);
-    // Fallback to MyMemory
-    return await translateWithMyMemory(text);
+    console.warn(`[Translation] Gemini (EN->DE) failed, falling back to MyMemory. Error: ${error.message}`);
+    return await translateWithMyMemory(text, 'en|de');
+  }
+}
+
+/**
+ * Translate text from German to English using Gemini with MyMemory fallback
+ * @param {string} text - The German word or phrase to translate
+ * @returns {Promise<string>} The translated English text
+ */
+async function translateToEnglishWithFallback(text) {
+  try {
+    return await translateToEnglish(text);
+  } catch (error) {
+    console.warn(`[Translation] Gemini (DE->EN) failed, falling back to MyMemory. Error: ${error.message}`);
+    return await translateWithMyMemory(text, 'de|en');
   }
 }
 
@@ -96,5 +107,6 @@ async function translateMultipleSentences(text) {
 module.exports = {
   translateToGerman,
   translateMultipleSentences,
-  translateWithMyMemory // Exported for testing/specific usage if needed
+  translateToEnglish: translateToEnglishWithFallback,
+  translateWithMyMemory
 };

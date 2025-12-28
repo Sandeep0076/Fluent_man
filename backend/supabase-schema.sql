@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS journal_entries (
   id BIGSERIAL PRIMARY KEY,
   english_text TEXT NOT NULL,
   german_text TEXT NOT NULL,
+  english_bullets JSONB DEFAULT '[]'::jsonb,
+  german_bullets JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   word_count INTEGER DEFAULT 0,
   session_duration INTEGER DEFAULT 0

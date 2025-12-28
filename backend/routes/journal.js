@@ -1,7 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../supabase');
-const { extractVocabulary } = require('../services/vocabulary-extractor');
+// const { extractVocabulary } = require('../services/vocabulary-extractor'); (disabled as per user request)
+
+// Helper to split text into bullets
+function splitIntoBullets(text) {
+  if (!text) return [];
+  return text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+}
 
 /**
  * GET /api/journal/entries
@@ -129,9 +135,11 @@ router.post('/entry', async (req, res) => {
     const wordCount = german_text.trim().split(/\s+/).length;
 
     // Insert journal entry
-    const { data: newEntry, error } = await supabase
+    const { data: newEntry, error: insertError } = await supabase
       .from('journal_entries')
       .insert({
+        english_text,
+        german_text,
         english_bullets: englishBullets,
         german_bullets: germanBullets,
         word_count: wordCount,
@@ -140,32 +148,46 @@ router.post('/entry', async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (insertError) {
+      console.error('Supabase Insert Error:', insertError);
+      return res.status(500).json({
+        success: false,
+        error: `Database error: ${insertError.message}`,
+        details: insertError
+      });
+    }
 
-    // Extract vocabulary from German text (async)
-    const newWords = await extractVocabulary(german_text);
+    // Extract vocabulary from German text (disabled as per user request)
+    // const newWords = await extractVocabulary(german_text);
+    const newWords = [];
 
     // Update progress stats for today
     const today = new Date().toISOString().split('T')[0];
 
-    // Check if stats exist for today
-    const { data: existingStats } = await supabase
+    // Check if stats exist for today (ilike for dates doesn't work well, using standard eq)
+    const { data: existingStats, error: statsFetchError } = await supabase
       .from('progress_stats')
       .select('*')
       .eq('date', today)
-      .single();
+      .maybeSingle(); // maybeSingle doesn't throw if not found
+
+    if (statsFetchError) {
+      console.warn('Error fetching progress stats:', statsFetchError.message);
+    }
 
     if (existingStats) {
-      await supabase
+      const { error: updateError } = await supabase
         .from('progress_stats')
         .update({
-          words_learned: existingStats.words_learned + newWords.length,
-          entries_written: existingStats.entries_written + 1,
-          minutes_practiced: existingStats.minutes_practiced + (session_duration || 0)
+          words_learned: (existingStats.words_learned || 0) + newWords.length,
+          entries_written: (existingStats.entries_written || 0) + 1,
+          minutes_practiced: (existingStats.minutes_practiced || 0) + (session_duration || 0)
         })
         .eq('date', today);
+
+      if (updateError) console.error('Error updating stats:', updateError.message);
     } else {
-      await supabase
+      const { error: statsInsertError } = await supabase
         .from('progress_stats')
         .insert({
           date: today,
@@ -173,6 +195,8 @@ router.post('/entry', async (req, res) => {
           entries_written: 1,
           minutes_practiced: session_duration || 0
         });
+
+      if (statsInsertError) console.error('Error inserting stats:', statsInsertError.message);
     }
 
     res.status(201).json({
@@ -183,10 +207,11 @@ router.post('/entry', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error creating journal entry:', error);
+    console.error('Unhandled Error in POST /journal/entry:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to create journal entry'
+      error: 'An unexpected error occurred while saving your entry.',
+      message: error.message
     });
   }
 });
@@ -218,15 +243,15 @@ router.put('/entry/:id', async (req, res) => {
 
     // Prepare update data
     const updateData = {};
-    
+
     if (english_text) {
       updateData.english_text = english_text;
-      updateData.english_bullets = JSON.stringify(splitIntoBullets(english_text));
+      updateData.english_bullets = splitIntoBullets(english_text);
     }
-    
+
     if (german_text) {
       updateData.german_text = german_text;
-      updateData.german_bullets = JSON.stringify(splitIntoBullets(german_text));
+      updateData.german_bullets = splitIntoBullets(german_text);
       updateData.word_count = german_text.trim().split(/\s+/).length;
     }
 
@@ -240,11 +265,13 @@ router.put('/entry/:id', async (req, res) => {
 
     if (error) throw error;
 
-    // If German text changed, re-extract vocabulary (async)
+    // If German text changed, re-extract vocabulary (disabled as per user request)
     let newWords = [];
+    /*
     if (german_text && german_text !== existing.german_text) {
       newWords = await extractVocabulary(german_text);
     }
+    */
 
     res.json({
       success: true,

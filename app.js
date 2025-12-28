@@ -212,7 +212,10 @@ async function loadChart() {
 // --- BULLET POINT MANAGEMENT ---
 function createBulletInput(container, language, initialText = '') {
     const bulletDiv = document.createElement('div');
-    bulletDiv.className = 'flex items-start gap-2 group';
+    bulletDiv.className = 'flex flex-col gap-2 group relative'; // Changed to flex-col to accommodate preview
+
+    const mainRow = document.createElement('div');
+    mainRow.className = 'flex items-start gap-2';
 
     const bullet = document.createElement('span');
     bullet.className = 'text-slate-400 mt-2 select-none';
@@ -223,6 +226,35 @@ function createBulletInput(container, language, initialText = '') {
     input.placeholder = language === 'english' ? 'Write a sentence...' : 'Schreiben Sie einen Satz...';
     input.value = initialText;
     input.rows = 1;
+
+    // Special display for German bullets to allow clicking words
+    let displayDiv = null;
+    if (language === 'german') {
+        displayDiv = document.createElement('div');
+        displayDiv.className = 'flex-1 text-lg leading-relaxed text-slate-700 min-h-[2rem] py-1 hidden cursor-default';
+        mainRow.appendChild(displayDiv);
+
+        // Toggle view on focus/blur
+        input.addEventListener('blur', function () {
+            if (this.value.trim()) {
+                updateGermanDisplay(this.value, displayDiv);
+                this.classList.add('hidden');
+                displayDiv.classList.remove('hidden');
+            }
+        });
+
+        displayDiv.addEventListener('click', function () {
+            this.classList.add('hidden');
+            input.classList.remove('hidden');
+            input.focus();
+        });
+
+        if (initialText) {
+            updateGermanDisplay(initialText, displayDiv);
+            input.classList.add('hidden');
+            displayDiv.classList.remove('hidden');
+        }
+    }
 
     // Auto-resize textarea
     input.addEventListener('input', function () {
@@ -242,22 +274,89 @@ function createBulletInput(container, language, initialText = '') {
 
     // Delete button
     const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 text-xl';
+    deleteBtn.className = 'text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity mt-2 text-xl ml-2';
     deleteBtn.innerHTML = '×';
-    deleteBtn.onclick = () => {
-        const allBullets = container.querySelectorAll('.flex.items-start.gap-2');
+    deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        const allBullets = container.querySelectorAll('.flex.flex-col.gap-2.group');
         if (allBullets.length > 1) {
             bulletDiv.remove();
         } else {
             input.value = '';
+            if (displayDiv) {
+                displayDiv.innerHTML = '';
+                displayDiv.classList.add('hidden');
+                input.classList.remove('hidden');
+            }
         }
     };
 
-    bulletDiv.appendChild(bullet);
-    bulletDiv.appendChild(input);
-    bulletDiv.appendChild(deleteBtn);
+    mainRow.appendChild(bullet);
+    mainRow.appendChild(input);
+    mainRow.appendChild(deleteBtn);
+    bulletDiv.appendChild(mainRow);
 
     return bulletDiv;
+}
+
+function updateGermanDisplay(text, container) {
+    container.innerHTML = '';
+    // Split by words and punctuation, keeping track of them
+    const tokens = text.split(/(\s+|[.,!?;:()])/);
+
+    tokens.forEach(token => {
+        if (token.trim().length > 0 && !/[.,!?;:()]/.test(token)) {
+            const span = document.createElement('span');
+            span.className = 'hover:text-blue-600 hover:bg-blue-50 px-0.5 rounded transition-colors cursor-pointer inline-block';
+            span.textContent = token;
+            span.onclick = (e) => {
+                e.stopPropagation();
+                addWordFromJournal(token);
+            };
+            container.appendChild(span);
+        } else {
+            const textNode = document.createTextNode(token);
+            container.appendChild(textNode);
+        }
+    });
+}
+
+async function addWordFromJournal(germanWord) {
+    if (!confirm(`Do you want to add "${germanWord}" to your vocabulary bank?`)) return;
+
+    try {
+        // Fetch English translation first
+        const translationResult = await apiCall('/translate/reverse', {
+            method: 'POST',
+            body: JSON.stringify({ text: germanWord })
+        });
+
+        const englishMeaning = translationResult.data.translated;
+
+        // Show confirm with translation
+        if (!confirm(`Translated as: "${englishMeaning}". Add this to vocabulary?`)) return;
+
+        await apiCall('/vocabulary', {
+            method: 'POST',
+            body: JSON.stringify({
+                word: englishMeaning, // Backend POST /api/vocabulary expects English 'word' and auto-translates or takes 'meaning' as German
+                meaning: germanWord   // Based on existing backend logic in vocabulary.js POST
+            })
+        });
+
+        // Show success
+        const feedback = document.getElementById('feedback-area');
+        feedback.classList.remove('hidden');
+        feedback.querySelector('span').innerHTML = `🎉 Added "<b>${germanWord}</b>" (<i>${englishMeaning}</i>) to vocabulary!`;
+
+        // Refresh vocabulary if on that page
+        if (state.currentView === 'vocabulary') loadVocabulary();
+        if (state.currentView === 'dashboard') loadDashboard();
+
+    } catch (error) {
+        console.error('Error adding word from journal:', error);
+        alert('Failed to add word: ' + error.message);
+    }
 }
 
 function addBulletPoint(language, text = '') {
@@ -347,7 +446,7 @@ async function translateText() {
     try {
         // Join all bullets with newlines for single translation
         const combinedText = englishBullets.join('\n');
-        
+
         const result = await apiCall('/translate', {
             method: 'POST',
             body: JSON.stringify({
@@ -373,8 +472,11 @@ async function translateText() {
 }
 
 async function processEntry() {
-    const enText = document.getElementById('input-en').value;
-    const deText = document.getElementById('input-de').value;
+    const enBullets = getBulletsText('english');
+    const deBullets = getBulletsText('german');
+
+    const enText = enBullets.join('\n');
+    const deText = deBullets.join('\n');
 
     if (!deText.trim()) {
         alert('Bitte schreiben Sie etwas auf Deutsch!');
@@ -417,8 +519,11 @@ async function processEntry() {
         }
 
         // Show success feedback
-        document.getElementById('new-words-count').innerText = result.data.new_words.length;
         document.getElementById('feedback-area').classList.remove('hidden');
+        const countEl = document.getElementById('new-words-count');
+        if (countEl) {
+            countEl.parentElement.innerHTML = '🎉 Entry saved successfully!';
+        }
 
         // Clear inputs
         clearJournal();
@@ -506,12 +611,16 @@ async function viewJournalEntry(id) {
         const result = await apiCall(`/journal/entry/${id}`);
         const entry = result.data;
 
-        document.getElementById('input-en').value = entry.english_text;
-        document.getElementById('input-de').value = entry.german_text;
+        // Populate bullet points
+        const enBullets = entry.english_bullets || (entry.english_text ? entry.english_text.split('\n') : []);
+        const deBullets = entry.german_bullets || (entry.german_text ? entry.german_text.split('\n') : []);
+
+        setBullets('english', enBullets);
+        setBullets('german', deBullets);
 
         // Scroll to top of journal inputs on mobile if needed
         if (window.innerWidth < 1024) {
-            document.getElementById('input-en').scrollIntoView({ behavior: 'smooth' });
+            document.getElementById('english-bullets-container').scrollIntoView({ behavior: 'smooth' });
         }
 
         // Set editing state
@@ -813,8 +922,6 @@ async function addWord() {
 }
 
 async function deleteWord(id) {
-    if (!confirm('Delete this word from your vocabulary?')) return;
-
     try {
         await apiCall(`/vocabulary/${id}`, { method: 'DELETE' });
         await loadVocabulary();
@@ -874,6 +981,33 @@ function toggleTranslation(index) {
 
 // --- NOTES (formerly MOTIVATION) ---
 let editingNoteId = null;
+
+function toggleAddNote() {
+    const section = document.getElementById('add-note-section');
+    const toggleBtn = document.getElementById('toggle-note-btn');
+    const isHidden = section.classList.contains('hidden');
+
+    if (isHidden) {
+        section.classList.remove('hidden');
+        if (toggleBtn) {
+            toggleBtn.querySelector('span').innerHTML = '✕';
+            toggleBtn.classList.replace('bg-blue-600', 'bg-slate-600');
+        }
+    } else {
+        section.classList.add('hidden');
+        if (toggleBtn) {
+            toggleBtn.querySelector('span').innerHTML = '+';
+            toggleBtn.classList.replace('bg-slate-600', 'bg-blue-600');
+        }
+
+        // Clear form
+        document.getElementById('new-note-title').value = '';
+        document.getElementById('new-note-content').value = '';
+        editingNoteId = null;
+        const addBtn = document.querySelector('button[onclick="addNote()"]');
+        if (addBtn) addBtn.innerHTML = '+ Add Note';
+    }
+}
 
 async function loadNotes() {
     try {
@@ -961,6 +1095,15 @@ async function addNote() {
         titleInput.value = '';
         contentInput.value = '';
 
+        // Hide section and reset button
+        const section = document.getElementById('add-note-section');
+        const toggleBtn = document.getElementById('toggle-note-btn');
+        section.classList.add('hidden');
+        if (toggleBtn) {
+            toggleBtn.querySelector('span').innerHTML = '+';
+            toggleBtn.classList.replace('bg-slate-600', 'bg-blue-600');
+        }
+
         // Reload notes
         await loadNotes();
 
@@ -989,6 +1132,15 @@ async function editNote(id) {
         // Update button text
         const addBtn = document.querySelector('button[onclick="addNote()"]');
         addBtn.innerHTML = '💾 Update Note';
+
+        // Show section if hidden and update button
+        const section = document.getElementById('add-note-section');
+        const toggleBtn = document.getElementById('toggle-note-btn');
+        section.classList.remove('hidden');
+        if (toggleBtn) {
+            toggleBtn.querySelector('span').innerHTML = '✕';
+            toggleBtn.classList.replace('bg-blue-600', 'bg-slate-600');
+        }
 
         // Scroll to form
         document.getElementById('new-note-title').scrollIntoView({ behavior: 'smooth', block: 'center' });
