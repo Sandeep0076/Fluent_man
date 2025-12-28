@@ -10,8 +10,13 @@ const { translateToGerman } = require('../services/translation');
  */
 router.get('/', async (req, res) => {
   try {
-    const { sort, search } = req.query;
+    const { sort, search, category_id } = req.query;
     let query = supabase.from('vocabulary').select('*');
+
+    // Add category filter
+    if (category_id && category_id !== 'all') {
+      query = query.eq('category_id', category_id);
+    }
 
     // Add search filter
     if (search) {
@@ -54,6 +59,95 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * GET /api/vocabulary/categories
+ * Get all vocabulary categories
+ */
+router.get('/categories', async (req, res) => {
+  try {
+    const { data: categories, error } = await supabase
+      .from('vocabulary_categories')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: categories || []
+    });
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch categories'
+    });
+  }
+});
+
+/**
+ * POST /api/vocabulary/categories
+ * Add a new vocabulary category
+ */
+router.post('/categories', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Category name is required' });
+    }
+
+    const { data: category, error } = await supabase
+      .from('vocabulary_categories')
+      .insert({ name: name.trim() })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') { // Unique constraint
+        return res.status(409).json({ success: false, error: 'Category already exists' });
+      }
+      throw error;
+    }
+
+    res.status(201).json({
+      success: true,
+      data: category
+    });
+  } catch (error) {
+    console.error('Error adding category:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to add category'
+    });
+  }
+});
+
+/**
+ * DELETE /api/vocabulary/categories/:id
+ * Delete a vocabulary category
+ */
+router.delete('/categories/:id', async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('vocabulary_categories')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'Category deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete category'
+    });
+  }
+});
+
+/**
  * GET /api/vocabulary/stats
  * Get vocabulary statistics
  */
@@ -82,7 +176,7 @@ router.get('/stats', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const { word, meaning } = req.body;
+    const { word, meaning, category_id } = req.body;
 
     if (!word || typeof word !== 'string' || word.trim().length === 0) {
       return res.status(400).json({
@@ -127,7 +221,8 @@ router.post('/', async (req, res) => {
       .insert({
         word: germanTranslation || englishWord,
         meaning: englishWord,
-        frequency: 1
+        frequency: 1,
+        category_id: category_id || null
       })
       .select()
       .single();

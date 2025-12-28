@@ -11,7 +11,9 @@ const state = {
     isOnline: true,
     editingEntryId: null,
     englishBullets: [],
-    germanBullets: []
+    germanBullets: [],
+    selectedCategoryId: 'all',
+    categories: []
 };
 
 // --- API HELPER FUNCTIONS ---
@@ -75,7 +77,10 @@ function navTo(viewId) {
     state.currentView = viewId;
 
     // Load data for specific views
-    if (viewId === 'vocabulary') loadVocabulary();
+    if (viewId === 'vocabulary') {
+        loadCategories();
+        loadVocabulary();
+    }
     if (viewId === 'dashboard') loadDashboard();
     if (viewId === 'phrases') loadPhrases();
     if (viewId === 'journal') {
@@ -671,7 +676,8 @@ async function loadVocabulary() {
             renderSearchResults(result.data, searchText);
         } else {
             // Otherwise, load all vocabulary with sorting
-            const result = await apiCall(`/vocabulary?sort=${sortMode}`);
+            const categoryParam = state.selectedCategoryId && state.selectedCategoryId !== 'all' ? `&category_id=${state.selectedCategoryId}` : '';
+            const result = await apiCall(`/vocabulary?sort=${sortMode}${categoryParam}`);
             renderVocabulary(result.data);
         }
     } catch (error) {
@@ -873,9 +879,11 @@ async function toggleWordMeaning(id, event) {
 async function addWord() {
     const wordInput = document.getElementById('new-word-input');
     const meaningInput = document.getElementById('new-word-meaning');
+    const categorySelect = document.getElementById('new-word-category');
 
     const word = wordInput.value.trim();
     const meaning = meaningInput.value.trim();
+    const category_id = categorySelect.value;
 
     if (!word) {
         alert('Please enter a word!');
@@ -886,6 +894,9 @@ async function addWord() {
         const payload = { word };
         if (meaning) {
             payload.meaning = meaning;
+        }
+        if (category_id) {
+            payload.category_id = category_id;
         }
 
         await apiCall('/vocabulary', {
@@ -930,6 +941,130 @@ async function deleteWord(id) {
         }
     } catch (error) {
         alert('Failed to delete word: ' + error.message);
+    }
+}
+
+// --- VOCABULARY CATEGORIES ---
+async function loadCategories() {
+    try {
+        const result = await apiCall('/vocabulary/categories');
+        state.categories = result.data;
+        renderCategories();
+        updateCategorySelect();
+    } catch (error) {
+        console.error('Error loading categories:', error);
+    }
+}
+
+function renderCategories() {
+    const container = document.getElementById('category-list');
+    if (!container) return;
+
+    // Keep "All Words" button
+    container.innerHTML = `
+        <button onclick="selectCategory('all')" id="cat-all"
+            class="w-full text-left px-4 py-3 rounded-xl transition-all font-medium ${state.selectedCategoryId === 'all' ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-white/50 text-slate-600 hover:bg-white hover:shadow-sm'}">
+            📁 All Words
+        </button>
+    `;
+
+    state.categories.forEach(cat => {
+        const isActive = state.selectedCategoryId == cat.id;
+        const btn = document.createElement('button');
+        btn.onclick = () => selectCategory(cat.id);
+        btn.id = `cat-${cat.id}`;
+        btn.className = `w-full text-left px-4 py-3 rounded-xl transition-all font-medium flex justify-between items-center group ${isActive ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-white/50 text-slate-600 hover:bg-white hover:shadow-sm'}`;
+
+        btn.innerHTML = `
+            <span>📁 ${cat.name}</span>
+            <span onclick="deleteCategory(event, ${cat.id})" class="opacity-0 group-hover:opacity-100 text-xs bg-red-400 hover:bg-red-500 text-white p-1 rounded-md transition-all">✕</span>
+        `;
+        container.appendChild(btn);
+    });
+}
+
+function updateCategorySelect() {
+    const select = document.getElementById('new-word-category');
+    if (!select) return;
+
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">No Category</option>';
+
+    state.categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.id;
+        option.textContent = cat.name;
+        select.appendChild(option);
+    });
+
+    select.value = currentVal;
+}
+
+function selectCategory(id) {
+    state.selectedCategoryId = id;
+    renderCategories();
+    loadVocabulary();
+}
+
+function showAddCategoryModal() {
+    const modal = document.getElementById('add-category-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.getElementById('new-category-name').focus();
+}
+
+function hideAddCategoryModal() {
+    const modal = document.getElementById('add-category-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    document.getElementById('new-category-name').value = '';
+}
+
+async function addCategory() {
+    const nameInput = document.getElementById('new-category-name');
+    const name = nameInput.value.trim();
+
+    if (!name) {
+        alert('Please enter a folder name!');
+        return;
+    }
+
+    try {
+        await apiCall('/vocabulary/categories', {
+            method: 'POST',
+            body: JSON.stringify({ name })
+        });
+
+        hideAddCategoryModal();
+        await loadCategories();
+
+        // Show success feedback
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[110] animate-fade-in';
+        successMsg.innerHTML = '✓ Folder created successfully!';
+        document.body.appendChild(successMsg);
+        setTimeout(() => successMsg.remove(), 3000);
+
+    } catch (error) {
+        alert('Failed to add folder: ' + error.message);
+    }
+}
+
+async function deleteCategory(event, id) {
+    event.stopPropagation();
+    if (!confirm('Are you sure you want to delete this folder? Words inside will not be deleted but will no longer have a folder.')) return;
+
+    try {
+        await apiCall(`/vocabulary/categories/${id}`, { method: 'DELETE' });
+
+        if (state.selectedCategoryId == id) {
+            state.selectedCategoryId = 'all';
+        }
+
+        await loadCategories();
+        await loadVocabulary();
+    } catch (error) {
+        alert('Failed to delete folder: ' + error.message);
     }
 }
 

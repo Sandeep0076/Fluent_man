@@ -520,34 +520,82 @@
                 </div>
             </header>
 
-            <!-- Add Word Section -->
-            <div class="glass-card p-6 rounded-[24px] !bg-white/60">
-                <h3 class="font-bold text-lg text-slate-800 mb-4">Add New Word</h3>
-                <div class="flex gap-3">
-                    <input type="text" id="new-word-input" placeholder="Enter English word..."
-                        class="flex-1 px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all placeholder-slate-300"
-                        onkeypress="if(event.key === 'Enter') addWord()">
-                    <input type="text" id="new-word-meaning" placeholder="German translation (optional)..."
-                        class="flex-1 px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all placeholder-slate-300"
-                        onkeypress="if(event.key === 'Enter') addWord()">
-                    <button onclick="addWord()"
-                        class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-200 hover:shadow-xl whitespace-nowrap">
-                        + Add Word
-                    </button>
+            <div class="flex flex-col lg:flex-row gap-6">
+                <!-- Main Column: Words -->
+                <div class="flex-1 space-y-6">
+                    <!-- Add Word Section -->
+                    <div class="glass-card p-6 rounded-[24px] !bg-white/60">
+                        <h3 class="font-bold text-lg text-slate-800 mb-4">Add New Word</h3>
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <input type="text" id="new-word-input" placeholder="English word..."
+                                class="flex-1 px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all placeholder-slate-300"
+                                onkeypress="if(event.key === 'Enter') addWord()">
+                            <input type="text" id="new-word-meaning" placeholder="German translation (optional)..."
+                                class="flex-1 px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all placeholder-slate-300"
+                                onkeypress="if(event.key === 'Enter') addWord()">
+                            <select id="new-word-category"
+                                class="md:w-48 px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 cursor-pointer">
+                                <option value="">No Category</option>
+                                <!-- Categories populated by JS -->
+                            </select>
+                            <button onclick="addWord()"
+                                class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-200 hover:shadow-xl whitespace-nowrap">
+                                + Add Word
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-2">💡 Tip: Leave German translation blank to auto-translate
+                            from English to German</p>
+                    </div>
+
+                    <div id="vocab-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <div id="empty-vocab-state"
+                        class="hidden flex flex-col items-center justify-center py-20 text-slate-400 opacity-60">
+                        <div class="text-6xl mb-4 grayscale opacity-50">📭</div>
+                        <h3 class="text-2xl font-bold">No words yet</h3>
+                        <p>Start writing to build your collection.</p>
+                    </div>
                 </div>
-                <p class="text-xs text-slate-400 mt-2">💡 Tip: Leave German translation blank to auto-translate from
-                    English to German</p>
+
+                <!-- Right Column: Folders/Categories -->
+                <div class="w-full lg:w-80 flex flex-col gap-6">
+                    <div class="glass-card p-6 rounded-[30px] !bg-white/60 h-full flex flex-col">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-lg text-slate-800">Folders</h3>
+                            <button onclick="showAddCategoryModal()"
+                                class="w-8 h-8 flex items-center justify-center bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                                title="Add New Category">
+                                <span class="text-xl">+</span>
+                            </button>
+                        </div>
+
+                        <div id="category-list" class="flex-1 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+                            <button onclick="selectCategory('all')" id="cat-all"
+                                class="w-full text-left px-4 py-3 rounded-xl bg-blue-600 text-white font-bold transition-all shadow-md">
+                                📁 All Words
+                            </button>
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div id="vocab-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                <!-- Populated by JS -->
-            </div>
-
-            <div id="empty-vocab-state"
-                class="hidden flex flex-col items-center justify-center py-20 text-slate-400 opacity-60">
-                <div class="text-6xl mb-4 grayscale opacity-50">📭</div>
-                <h3 class="text-2xl font-bold">No words yet</h3>
-                <p>Start writing to build your collection.</p>
+            <!-- Add Category Modal -->
+            <div id="add-category-modal"
+                class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+                <div class="glass-card w-full max-w-sm p-8 bg-white/90" onclick="event.stopPropagation()">
+                    <h3 class="text-2xl font-bold text-slate-800 mb-6">New Folder</h3>
+                    <input type="text" id="new-category-name" placeholder="Folder name (e.g., Emotions)..."
+                        class="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 mb-6">
+                    <div class="flex gap-3">
+                        <button onclick="addCategory()"
+                            class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-100">Create</button>
+                        <button onclick="hideAddCategoryModal()"
+                            class="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancel</button>
+                    </div>
+                </div>
             </div>
         </section>
 

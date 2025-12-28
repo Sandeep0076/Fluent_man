@@ -16,11 +16,19 @@ CREATE TABLE IF NOT EXISTS journal_entries (
   session_duration INTEGER DEFAULT 0
 );
 
+-- Vocabulary Categories Table
+CREATE TABLE IF NOT EXISTS vocabulary_categories (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Vocabulary Table
 CREATE TABLE IF NOT EXISTS vocabulary (
   id BIGSERIAL PRIMARY KEY,
   word TEXT UNIQUE NOT NULL,
   meaning TEXT,
+  category_id BIGINT REFERENCES vocabulary_categories(id) ON DELETE SET NULL,
   first_seen TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   frequency INTEGER DEFAULT 1,
   last_reviewed TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -65,6 +73,7 @@ ON CONFLICT DO NOTHING;
 
 -- Disable Row Level Security for now (enable later if needed)
 ALTER TABLE journal_entries DISABLE ROW LEVEL SECURITY;
+ALTER TABLE vocabulary_categories DISABLE ROW LEVEL SECURITY;
 ALTER TABLE vocabulary DISABLE ROW LEVEL SECURITY;
 ALTER TABLE custom_phrases DISABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings DISABLE ROW LEVEL SECURITY;
