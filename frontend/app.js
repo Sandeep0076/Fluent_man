@@ -1,6 +1,7 @@
-// DeutschTagebuch - Frontend Application Logic with Backend Integration
-// API Base URL
-const API_BASE = window.location.origin + '/api';
+// API Base URL (Update the production URL after first deployment)
+const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:8789'
+    : 'https://deutschtagebuch-api.<your-subdomain>.workers.dev';
 
 // Application State
 const state = {
@@ -19,6 +20,7 @@ const state = {
 // --- API HELPER FUNCTIONS ---
 async function apiCall(endpoint, options = {}) {
     try {
+        console.log(`🔵 API Call: ${API_BASE}${endpoint}`, options);
         const response = await fetch(`${API_BASE}${endpoint}`, {
             headers: {
                 'Content-Type': 'application/json',
@@ -27,14 +29,22 @@ async function apiCall(endpoint, options = {}) {
             ...options
         });
 
+        console.log(`🟢 Response status: ${response.status} for ${endpoint}`);
+
         if (!response.ok) {
             const error = await response.json();
+            console.error(`🔴 API Error Response:`, error);
             throw new Error(error.error || 'API request failed');
         }
 
         return await response.json();
     } catch (error) {
-        console.error('API Error:', error);
+        console.error(`🔴 API Error for ${endpoint}:`, error);
+        console.error('Error details:', {
+            message: error.message,
+            name: error.name,
+            stack: error.stack
+        });
 
         // Check if offline
         if (!navigator.onLine) {
@@ -121,17 +131,43 @@ function updateTimerDisplay() {
 // --- DASHBOARD ---
 let progressChartInstance = null;
 
+// Helper function to update user level
+async function updateUserLevel() {
+    try {
+        const activeDays = await apiCall('/progress/active-days');
+        const levelElement = document.getElementById('user-level');
+        if (levelElement && activeDays.data) {
+            const level = activeDays.data.activeDays;
+            levelElement.innerText = `lvl ${level}`;
+            console.log(`🎯 Level updated to: ${level} (${level} active days)`);
+        }
+    } catch (error) {
+        console.error('Error updating user level:', error);
+    }
+}
+
 async function loadDashboard() {
     try {
+        console.log('📊 Loading dashboard data...');
+
         // Load statistics
         const stats = await apiCall('/progress/stats');
         const streak = await apiCall('/progress/streak');
         const vocabStats = await apiCall('/vocabulary/stats');
+        const activeDays = await apiCall('/progress/active-days');
 
         // Update UI
         document.getElementById('stat-vocab-count').innerText = stats.data.vocabulary.total;
         document.getElementById('stat-vocab-new').innerText = stats.data.vocabulary.thisWeek;
         document.getElementById('stat-entries').innerText = stats.data.entries.total;
+
+        // Update user level based on active days
+        const levelElement = document.getElementById('user-level');
+        if (levelElement && activeDays.data) {
+            const level = activeDays.data.activeDays;
+            levelElement.innerText = `lvl ${level}`;
+            console.log(`🎯 User level updated to: ${level} (based on ${level} active days)`);
+        }
 
         // Update streak
         const streakEl = document.querySelector('#dashboard .text-4xl.font-bold.text-amber-600');
@@ -147,6 +183,7 @@ async function loadDashboard() {
         await loadChart();
     } catch (error) {
         console.error('Error loading dashboard:', error);
+        document.getElementById('user-level').innerText = 'lvl 0';
     }
 }
 
@@ -356,7 +393,11 @@ async function addWordFromJournal(germanWord) {
 
         // Refresh vocabulary if on that page
         if (state.currentView === 'vocabulary') loadVocabulary();
-        if (state.currentView === 'dashboard') loadDashboard();
+        if (state.currentView === 'dashboard') {
+            loadDashboard();
+        } else {
+            await updateUserLevel();
+        }
 
     } catch (error) {
         console.error('Error adding word from journal:', error);
@@ -529,9 +570,11 @@ async function processEntry() {
         // Clear inputs
         clearJournal();
 
-        // Reload dashboard if visible
+        // Reload dashboard if visible, otherwise just update level
         if (state.currentView === 'dashboard') {
             await loadDashboard();
+        } else {
+            await updateUserLevel();
         }
 
         // Reload journal history 
@@ -572,31 +615,31 @@ function renderJournalHistory(entries) {
 
     entries.forEach(entry => {
         const date = new Date(entry.created_at);
-        const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
         const dateString = date.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
 
         // Preview text from first bullet (German preferred, fallback to English)
         const germanBullets = entry.german_bullets || [];
         const englishBullets = entry.english_bullets || [];
         const firstBullet = germanBullets[0] || englishBullets[0] || '';
-        const previewText = firstBullet.substring(0, 60) + (firstBullet.length > 60 ? '...' : '');
+        const previewText = firstBullet.substring(0, 50) + (firstBullet.length > 50 ? '...' : '');
 
         const div = document.createElement('div');
-        div.className = 'p-4 rounded-xl bg-white/50 border border-white/60 hover:bg-white hover:shadow-md transition-all cursor-pointer group';
+        div.className = 'p-3 rounded-lg bg-white/60 border border-slate-200 hover:bg-white hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer group';
         div.onclick = () => viewJournalEntry(entry.id);
 
         div.innerHTML = `
-            <div class="flex justify-between items-start mb-2">
-                <div>
-                    <div class="text-xs font-bold text-blue-600 uppercase tracking-widest">${dayName}</div>
-                    <div class="text-sm font-bold text-slate-700">${dateString}</div>
+            <div class="flex justify-between items-start mb-1.5">
+                <div class="flex-1 min-w-0">
+                    <div class="text-[10px] font-black text-blue-600 tracking-wider mb-0.5">${dayName}</div>
+                    <div class="text-xs font-bold text-slate-700 truncate">${dateString}</div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-[10px] bg-slate-100 px-2 py-1 rounded-full text-slate-500 font-mono">${entry.word_count} words</span>
-                    <button onclick="deleteJournalEntry(event, ${entry.id})" class="text-slate-300 hover:text-red-500 transition-colors p-1" title="Delete Entry">🗑️</button>
+                <div class="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                    <span class="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-mono">${entry.word_count} words</span>
+                    <button onclick="deleteJournalEntry(event, ${entry.id})" class="text-slate-300 hover:text-red-500 transition-colors text-sm" title="Delete Entry">🗑️</button>
                 </div>
             </div>
-            <p class="text-xs text-slate-500 italic leading-relaxed line-clamp-2 group-hover:text-slate-700 transition-colors">
+            <p class="text-[11px] text-slate-500 italic leading-snug line-clamp-2 group-hover:text-slate-700 transition-colors">
                 "${previewText}"
             </p>
         `;
@@ -1337,9 +1380,11 @@ function hideWantedModal() {
 window.onload = async function () {
     // Check server connection
     try {
-        await apiCall('/health');
+        const healthCheck = await apiCall('/health');
+        console.log('✅ Server connected:', healthCheck);
         hideOfflineWarning();
     } catch (error) {
+        console.error('❌ Server connection failed:', error);
         showOfflineWarning();
     }
 
@@ -1347,8 +1392,14 @@ window.onload = async function () {
     startTimer();
 
     // Load initial data
-    await loadDashboard();
-    await loadPhrases();
+    try {
+        await loadDashboard();
+        await loadPhrases();
+        // If we successfully loaded data, hide any warning that might have appeared
+        hideOfflineWarning();
+    } catch (error) {
+        console.error('Failed to load initial data:', error);
+    }
 
     // Setup mobile menu
     document.getElementById('mobile-menu-btn').addEventListener('click', toggleMobileMenu);

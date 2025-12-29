@@ -234,6 +234,25 @@
             background: rgba(0, 0, 0, 0.2);
         }
 
+        /* Journal History Scrollbar */
+        #journal-history-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #journal-history-list::-webkit-scrollbar-track {
+            background: rgba(59, 130, 246, 0.05);
+            border-radius: 3px;
+        }
+
+        #journal-history-list::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.3);
+            border-radius: 3px;
+        }
+
+        #journal-history-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(59, 130, 246, 0.5);
+        }
+
         /* Nav Item Styles */
         .nav-item {
             transition: all 0.3s ease;
@@ -375,24 +394,24 @@
     </div>
 
     <!-- Main Content Area -->
-    <main class="flex-1 overflow-y-auto relative p-6 md:p-12 pt-6 md:pt-16">
+    <main class="flex-1 overflow-y-auto relative p-4 md:p-8 pt-4 md:pt-8">
 
         <!-- SECTION: DASHBOARD -->
-        <section id="dashboard" class="max-w-7xl mx-auto animate-fade-in space-y-8">
+        <section id="dashboard" class="max-w-7xl mx-auto animate-fade-in space-y-4">
             <header
-                class="flex flex-col md:flex-row justify-between items-center gap-6 mb-10 bg-white/40 p-6 rounded-3xl border-b-4"
+                class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4 bg-white/40 p-4 rounded-3xl border-b-4"
                 style="border-color: var(--op-wood)">
-                <div class="flex items-center gap-6">
+                <div class="flex items-center gap-4">
                     <div class="relative">
-                        <img src="assets/luffy_portrait.png" class="w-24 h-24 rounded-full border-4 shadow-xl"
+                        <img src="assets/luffy_portrait.png" class="w-16 h-16 md:w-20 md:h-20 rounded-full border-4 shadow-xl"
                             style="border-color: var(--op-yellow)" alt="Luffy">
-                        <div
+                        <div id="user-level"
                             class="absolute -bottom-2 -right-2 bg-[var(--op-red)] text-white px-2 py-0.5 rounded-full text-xs font-bold border-2 border-white">
-                            lvl 99</div>
+                            lvl 0</div>
                     </div>
                     <div>
-                        <h2 class="text-4xl font-bold text-slate-800 op-title mb-1">Ore wa Kaizoku-ō ni naru!</h2>
-                        <p class="text-slate-600 text-lg font-medium">Ready to find the One Piece of Fluency? You've
+                        <h2 class="text-2xl md:text-3xl font-bold text-slate-800 op-title mb-1">Ore wa Kaizoku-ō ni naru!</h2>
+                        <p class="text-slate-600 text-sm md:text-base font-medium">Ready to find the One Piece of Fluency? You've
                             practiced for <span id="dash-time" class="font-bold text-[var(--op-red)]">0</span> minutes
                             today.</p>
                     </div>
@@ -405,22 +424,22 @@
             </header>
 
             <!-- Quick Stats Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <!-- Stat Card 1 -->
-                <div class="glass-card p-8 relative overflow-hidden group">
+                <div class="glass-card p-6 relative overflow-hidden group">
                     <div class="absolute -right-6 -top-6 opacity-10 group-hover:opacity-20 transition-opacity">
                         <span class="text-[12rem]">🍖</span>
                     </div>
                     <div class="relative z-10">
-                        <div class="flex items-center gap-3 mb-6">
+                        <div class="flex items-center gap-3 mb-4">
                             <div
-                                class="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 text-2xl border-2 border-orange-200 shadow-inner">
+                                class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 text-xl border-2 border-orange-200 shadow-inner">
                                 💰</div>
                             <div class="text-xs text-slate-500 font-extrabold uppercase tracking-widest">Total Bounty
                                 (Words)
                             </div>
                         </div>
-                        <div class="text-6xl font-black text-slate-800 mb-2 op-title" id="stat-vocab-count">0</div>
+                        <div class="text-4xl md:text-5xl font-black text-slate-800 mb-2 op-title" id="stat-vocab-count">0</div>
                         <div
                             class="inline-flex items-center gap-2 bg-green-100 px-4 py-2 rounded-lg text-green-700 text-xs font-black uppercase">
                             <span>+<span id="stat-vocab-new">0</span> Berry Today</span>
@@ -429,7 +448,7 @@
                 </div>
 
                 <!-- Stat Card 2 -->
-                <div class="glass-card p-8 rounded-[30px] relative overflow-hidden group">
+                <div class="glass-card p-6 rounded-[30px] relative overflow-hidden group">
                     <div
                         class="absolute -right-4 -top-4 p-4 opacity-5 transform rotate-12 group-hover:scale-110 transition-transform duration-500">
                         <span class="text-9xl grayscale">✍️</span>
@@ -441,13 +460,13 @@
                                 ✍️</div>
                             <div class="text-xs text-slate-500 font-bold uppercase tracking-wider">Journal Entries</div>
                         </div>
-                        <div class="text-5xl font-bold text-slate-800 mb-2" id="stat-entries">0</div>
+                        <div class="text-4xl font-bold text-slate-800 mb-2" id="stat-entries">0</div>
                         <div class="text-sm text-slate-400">Consistency creates fluency.</div>
                     </div>
                 </div>
 
                 <!-- Stat Card 3 -->
-                <div class="glass-card p-8 rounded-[30px] relative overflow-hidden group">
+                <div class="glass-card p-6 rounded-[30px] relative overflow-hidden group">
                     <div
                         class="absolute -right-4 -top-4 p-4 opacity-5 transform rotate-12 group-hover:scale-110 transition-transform duration-500">
                         <span class="text-9xl grayscale">🔥</span>
@@ -460,7 +479,7 @@
                             <div class="text-xs text-slate-500 font-bold uppercase tracking-wider">Current Streak</div>
                         </div>
                         <div
-                            class="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-600 mb-2">
+                            class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-600 mb-2">
                             3 Days</div>
                         <div class="text-sm text-slate-400">Personal Best: 12 Days</div>
                     </div>
@@ -468,10 +487,10 @@
             </div>
 
             <!-- Dashboard Main Content -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-96">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 h-auto lg:h-80">
                 <!-- Chart Section -->
-                <div class="lg:col-span-2 glass-card p-8 rounded-[30px] flex flex-col">
-                    <h3 class="font-bold text-xl mb-6 text-slate-800">Learning Velocity</h3>
+                <div class="lg:col-span-2 glass-card p-6 rounded-[30px] flex flex-col">
+                    <h3 class="font-bold text-lg mb-4 text-slate-800">Learning Velocity</h3>
                     <div class="chart-container flex-1 relative">
                         <canvas id="progressChart"></canvas>
                     </div>
@@ -479,24 +498,24 @@
 
                 <!-- Word of the Day -->
                 <div
-                    class="glass-card p-8 flex flex-col justify-center relative overflow-hidden bg-[url('assets/nautical_map_bg.png')] bg-cover border-4 border-[var(--op-blue)]">
+                    class="glass-card p-4 flex flex-col justify-center relative overflow-hidden bg-[url('assets/nautical_map_bg.png')] bg-cover border-4 border-[var(--op-blue)]">
                     <div class="absolute inset-0 bg-white/60"></div>
                     <div class="relative z-10">
                         <div
-                            class="uppercase tracking-widest text-xs text-[var(--op-blue)] font-black mb-4 flex items-center gap-2">
+                            class="uppercase tracking-widest text-[10px] text-[var(--op-blue)] font-black mb-2 flex items-center gap-2">
                             <span>📜</span> Nico Robin's Secret Message
                         </div>
-                        <h3 class="text-5xl font-black mb-2 text-slate-800 op-font">die Beharrlichkeit</h3>
-                        <p class="text-slate-600 italic text-xl mb-8 font-medium">persistence, perseverance</p>
+                        <h3 class="text-2xl lg:text-3xl font-black mb-1 text-slate-800 op-font break-words">die Beharrlichkeit</h3>
+                        <p class="text-slate-600 italic text-sm lg:text-base mb-4 font-medium">persistence, perseverance</p>
 
                         <div
-                            class="bg-[var(--op-yellow)]/80 p-6 rounded-2xl border-l-8 border-[var(--op-wood)] mb-8 shadow-md">
-                            <p class="text-slate-800 font-bold text-xl op-font">"Beharrlichkeit führt zum Ziel."</p>
-                            <p class="text-[#5d3615] text-sm mt-2 font-black">Persistence leads to the goal.</p>
+                            class="bg-[var(--op-yellow)]/80 p-3 rounded-2xl border-l-8 border-[var(--op-wood)] mb-4 shadow-md">
+                            <p class="text-slate-800 font-bold text-sm lg:text-base op-font break-words">"Beharrlichkeit führt zum Ziel."</p>
+                            <p class="text-[#5d3615] text-xs mt-1 font-black">Persistence leads to the goal.</p>
                         </div>
 
                         <button onclick="navTo('journal')"
-                            class="w-full py-5 rounded-2xl bg-[var(--op-blue)] hover:bg-[#1e40a4] text-white font-black op-title text-xl shadow-[6px_6px_0px_#1e293b] transition-all transform hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none">
+                            class="w-full py-3 rounded-2xl bg-[var(--op-blue)] hover:bg-[#1e40a4] text-white font-black op-title text-base lg:text-lg shadow-[6px_6px_0px_#1e293b] transition-all transform hover:translate-y-[-2px] active:translate-y-[2px] active:shadow-none">
                             TRAIN WITH ZORO
                         </button>
                     </div>
@@ -574,7 +593,7 @@
                 <!-- Right Side: History Sidebar -->
                 <div class="w-full lg:w-80 flex flex-col h-full">
                     <div class="glass-card h-full flex flex-col p-6 rounded-[30px] !bg-white/60">
-                        <div class="flex justify-between items-center mb-6">
+                        <div class="flex justify-between items-center mb-4">
                             <h3 class="font-bold text-lg text-slate-800">History</h3>
                             <select id="journal-sort" onchange="loadJournalHistory()"
                                 class="text-xs px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-600 focus:outline-none">
@@ -584,7 +603,7 @@
                             </select>
                         </div>
 
-                        <div id="journal-history-list" class="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
+                        <div id="journal-history-list" class="flex-1 overflow-y-auto pr-2 space-y-2" style="max-height: calc(100vh - 300px);">
                             <!-- Populated by JS -->
                             <div class="text-center py-10 opacity-50 text-sm">Loading...</div>
                         </div>

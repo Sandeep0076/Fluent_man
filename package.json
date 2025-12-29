@@ -4,8 +4,9 @@
   "description": "Daily German learning app with journal, vocabulary tracking, and progress monitoring",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev:backend": "cd backend-worker && npx wrangler dev",
+    "dev:frontend": "npx serve frontend -p 3000",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\""
   },
   "keywords": [
     "german",
@@ -24,6 +25,8 @@
     "express": "^4.18.2"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.0.2",
+    "serve": "^14.2.5"
   }
 }

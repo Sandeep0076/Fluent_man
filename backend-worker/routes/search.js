@@ -1,51 +1,35 @@
-const express = require('express');
-const router = express.Router();
-const supabase = require('../supabase');
+import { Hono } from 'hono'
+import { getSupabaseClient } from '../supabase.js'
 
-/**
- * Helper function to extract sentences containing a search term
- * @param {string} text - The full text to search in
- * @param {string} searchTerm - The term to search for
- * @returns {Array} Array of sentences containing the search term
- */
+const router = new Hono()
+
 function extractSentencesWithTerm(text, searchTerm) {
   if (!text || !searchTerm) return [];
-  
-  // Split text into sentences (handles ., !, ?)
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-  
   const searchLower = searchTerm.toLowerCase();
   const matchingSentences = [];
-  
   sentences.forEach(sentence => {
     const sentenceTrimmed = sentence.trim();
     if (sentenceTrimmed.toLowerCase().includes(searchLower)) {
       matchingSentences.push(sentenceTrimmed);
     }
   });
-  
   return matchingSentences;
 }
 
 /**
  * GET /api/search
- * Unified search across vocabulary and journal entries
- * Returns vocabulary words and sentences from journals containing the search term
  */
-router.get('/', async (req, res) => {
+router.get('/', async (c) => {
   try {
-    const { q } = req.query;
-
+    const supabase = getSupabaseClient(c.env);
+    const q = c.req.query('q')
     if (!q || q.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Search query is required'
-      });
+      return c.json({ success: false, error: 'Search query is required' }, 400);
     }
 
     const searchTerm = q.trim();
 
-    // Search vocabulary
     const { data: vocabResults, error: vocabError } = await supabase
       .from('vocabulary')
       .select('*')
@@ -55,7 +39,6 @@ router.get('/', async (req, res) => {
 
     if (vocabError) throw vocabError;
 
-    // Search journal entries
     const { data: journalResults, error: journalError } = await supabase
       .from('journal_entries')
       .select('*')
@@ -65,12 +48,9 @@ router.get('/', async (req, res) => {
 
     if (journalError) throw journalError;
 
-    // Extract sentences from journal entries
     const journalSentences = [];
-    
-    if (journalResults && journalResults.length > 0) {
+    if (journalResults) {
       journalResults.forEach(entry => {
-        // Extract from German text
         const germanSentences = extractSentencesWithTerm(entry.german_text, searchTerm);
         germanSentences.forEach(sentence => {
           journalSentences.push({
@@ -82,7 +62,6 @@ router.get('/', async (req, res) => {
           });
         });
 
-        // Extract from English text
         const englishSentences = extractSentencesWithTerm(entry.english_text, searchTerm);
         englishSentences.forEach(sentence => {
           journalSentences.push({
@@ -96,7 +75,7 @@ router.get('/', async (req, res) => {
       });
     }
 
-    res.json({
+    return c.json({
       success: true,
       data: {
         vocabulary: vocabResults || [],
@@ -109,11 +88,8 @@ router.get('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Error performing search:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to perform search'
-    });
+    return c.json({ success: false, error: 'Failed to perform search' }, 500);
   }
 });
 
-module.exports = router;
+export default router

@@ -1,174 +1,126 @@
-# DeutschTagebuch - Quick Start Guide
+# DeutschTagebuch - Quick Start Guide (Cloudflare Version)
 
-## 🎉 Your App is Ready!
+## 🎉 Welcome to Your German Learning Adventure!
 
-The server is currently running at **http://localhost:3000**
+Get ready to set sail on your journey to German fluency with this **Cloudflare-powered** One Piece themed learning app!
 
-## ✅ What's Been Built
+## ✅ Cloudflare Architecture
 
-### Backend (Node.js + Express + SQLite)
-- ✅ Full REST API with all endpoints
-- ✅ SQLite database with persistent storage
-- ✅ Automatic vocabulary extraction
-- ✅ MyMemory Translation API integration
-- ✅ Streak tracking system
-- ✅ Progress statistics
-- ✅ Data export/import functionality
+### Frontend (Cloudflare Pages)
+- **Static Site**: HTML, CSS, and Vanilla JavaScript.
+- **Location**: `/frontend` directory.
+- **UI**: Beautiful One Piece anime-themed interface with glassmorphism.
 
-### Frontend (HTML + JavaScript)
-- ✅ Beautiful responsive UI
-- ✅ Dashboard with real-time stats
-- ✅ Daily journal with translation
-- ✅ Vocabulary bank with search/filter
-- ✅ Common phrases section
-- ✅ Motivation tips
-- ✅ Offline detection
+### Backend (Cloudflare Workers + Hono)
+- **Framework**: [Hono](https://hono.dev/) for high-performance serverless execution.
+- **Location**: `/backend-worker` directory.
+- **Database**: Supabase PostgreSQL (Cloud).
+- **AI**: Google Gemini API via native `fetch`.
 
-## 🚀 How to Use
+---
 
-### 1. Access the App
-Open your browser and go to: **http://localhost:3000**
+## 🚀 Getting Started
 
-### 2. Daily Workflow
+### 1. Prerequisites
+- **Node.js**: v18 or higher.
+- **Cloudflare Account**: For deployment.
+- **Supabase Account**: (Free tier: https://supabase.com)
+- **Google Gemini API Key**: (Free tier: https://ai.google.dev)
 
-#### Write Your Journal Entry:
-1. Click on "Daily Journal" in the sidebar
-2. Write 10-15 sentences in English (left panel)
-3. Click the **"🌐 Translate"** button to get German translation
-4. Edit the German version if needed
-5. Click **"✨ Process & Save"** to save and extract vocabulary
+### 2. Local Setup
 
-#### Review Your Progress:
-- **Dashboard**: See your streak, vocabulary count, and learning charts
-- **Vocabulary Bank**: Browse all learned words with search and filters
-- **Common Phrases**: Practice useful German expressions
+1.  **Clone & Install**:
+    ```bash
+    npm install
+    cd backend-worker && npm install
+    cd ..
+    ```
 
-### 3. Key Features
+2.  **Environment Variables**:
+    Create a file named `backend-worker/.dev.vars` (Wrangler uses this for local secrets) and add:
+    ```env
+    SUPABASE_URL=your_supabase_project_url
+    SUPABASE_ANON_KEY=your_supabase_anon_key
+    GEMINI_API_KEY=your_gemini_api_key
+    ```
+    *Also keep your root `.env` for other scripts.*
 
-**Automatic Translation:**
-- Write in English, get instant German translation
-- Uses MyMemory API (free, 1000 requests/day)
+3.  **Database Setup**:
+    - Create a new project at https://supabase.com.
+    - Go to **SQL Editor**.
+    - Run the schema from `backend-worker/supabase-schema.sql`.
 
-**Smart Vocabulary Extraction:**
-- Automatically extracts German words from your writing
-- Filters out common stop words
-- Tracks word frequency
-- No duplicates
+4.  **Run Development Servers**:
+    From the root directory:
+    ```bash
+    npm run dev
+    ```
+    - **Frontend**: http://localhost:3000
+    - **Backend API**: http://localhost:8787
 
-**Progress Tracking:**
-- Daily streak counter
-- Words learned per week
-- Visual charts showing your progress
-- Session timer
+---
 
-**Data Persistence:**
-- Everything is saved to SQLite database
-- Export your data anytime via `/api/data/export`
-- Import backups via `/api/data/import`
+## 🚢 Deployment to Cloudflare
+
+### 1. Deploy the Backend Worker
+1.  Enter the worker directory: `cd backend-worker`
+2.  Deploy with Wrangler: `npx wrangler deploy`
+3.  **Note your worker URL** (e.g., `https://deutschtagebuch-api.your-subdomain.workers.dev`).
+
+### 2. Set Production Secrets
+Run these commands in the `backend-worker` directory to set your secrets on Cloudflare:
+```bash
+npx wrangler secret put SUPABASE_URL
+npx wrangler secret put SUPABASE_ANON_KEY
+npx wrangler secret put GEMINI_API_KEY
+```
+
+### 3. Update Frontend API Link
+1.  Open `frontend/app.js`.
+2.  Update the production URL in the `API_BASE` variable to your new Worker URL.
+
+### 4. Deploy Frontend to Cloudflare Pages
+1.  From the root directory:
+    ```bash
+    npx wrangler pages deploy frontend --project-name=deutschtagebuch
+    ```
+
+---
 
 ## 📁 Project Structure
 
 ```
-Fluent_man/
-├── index.html              # Frontend UI
-├── app.js                  # Frontend JavaScript
-├── server.js               # Express server
-├── package.json            # Dependencies
-├── deutschtagebuch.db      # SQLite database (auto-created)
-├── backend/
-│   ├── database.js         # Database setup
-│   ├── routes/             # API endpoints
-│   │   ├── journal.js      # Journal CRUD
-│   │   ├── vocabulary.js   # Vocabulary management
-│   │   ├── phrases.js      # Phrases
-│   │   ├── progress.js     # Statistics & streaks
-│   │   ├── translate.js    # Translation
-│   │   ├── settings.js     # User settings
-│   │   └── data.js         # Export/import
-│   └── services/
-│       ├── translation.js  # Translation logic
-│       └── vocabulary-extractor.js
-└── README.md               # Full documentation
+DeutschTagebuch/
+├── frontend/               # Cloudflare Pages Source
+│   ├── index.html          # Main UI
+│   ├── app.js              # Application Logic
+│   └── assets/             # Images & Icons
+├── backend-worker/         # Cloudflare Worker Source (Hono)
+│   ├── index.js            # Entry Point
+│   ├── supabase.js         # Supabase Client
+│   ├── wrangler.toml       # Worker Config
+│   ├── routes/             # API Endpoints
+│   └── services/           # AI & Logic Services
+├── package.json            # Root dev scripts
+└── .dev.vars               # Local secrets for Wrangler
 ```
-
-## 🔧 Server Commands
-
-**Start the server:**
-```bash
-npm start
-```
-
-**Development mode (auto-restart):**
-```bash
-npm run dev
-```
-
-**Stop the server:**
-Press `Ctrl+C` in the terminal
-
-## 📊 API Endpoints
-
-All endpoints are available at `http://localhost:3000/api`
-
-### Journal
-- `POST /api/journal/entry` - Create entry
-- `GET /api/journal/entries` - Get all entries
-- `GET /api/journal/search?q=term` - Search entries
-
-### Vocabulary
-- `GET /api/vocabulary` - Get all words
-- `GET /api/vocabulary/stats` - Get statistics
-- `DELETE /api/vocabulary/:id` - Delete word
-
-### Translation
-- `POST /api/translate` - Translate English to German
-
-### Progress
-- `GET /api/progress/stats` - Overall statistics
-- `GET /api/progress/streak` - Current streak
-- `GET /api/progress/chart-data?days=7` - Chart data
-
-### Data Management
-- `GET /api/data/export` - Export all data
-- `POST /api/data/import` - Import backup
-
-## 💡 Tips for Daily Practice
-
-1. **Write Every Day**: Even 5 sentences help maintain your streak
-2. **Review Vocabulary**: Check your Vocabulary Bank regularly
-3. **Use Phrases**: Practice the common phrases section
-4. **Track Progress**: Watch your charts grow over time
-5. **Export Regularly**: Backup your data weekly
-
-## 🎯 Your Learning Goals
-
-- **Daily Goal**: 60 minutes of practice
-- **Sentence Goal**: 10-15 sentences per day
-- **Focus**: Conversational fluency, not exam preparation
-
-## 🐛 Troubleshooting
-
-**Server won't start:**
-- Make sure port 3000 is not in use
-- Run `npm install` again if needed
-
-**Translation not working:**
-- Check your internet connection
-- MyMemory API has 1000 requests/day limit
-
-**Data not saving:**
-- Check if `deutschtagebuch.db` file exists
-- Look for errors in the terminal
-
-## 📝 Next Steps
-
-1. Open http://localhost:3000 in your browser
-2. Start writing your first journal entry
-3. Watch your vocabulary grow!
-4. Track your daily streak
 
 ---
 
-**Viel Erfolg mit deinem Deutsch! 🇩🇪**
+## 🛡️ Key Commands
 
-For detailed documentation, see [README.md](README.md)
+- `npm run dev`: Runs both frontend and backend locally.
+- `npm run dev:frontend`: Runs only the frontend (at port 3000).
+- `npm run dev:backend`: Runs only the backend worker (at port 8787).
+
+---
+
+## 💡 Pro Learning Tips
+
+1.  **Write Daily**: Consistency is the #1 factor in fluency.
+2.  **Click German Words**: In the journal, click words to instantly add them to Nami's Maps.
+3.  **Use Categories**: Organize your vocabulary by context (e.g., "Battle", "Food", "Ship").
+4.  **Bounty Hunters**: Check your bounty (word count) grow on the Captain's Log!
+
+**Viel Erfolg mit deinem Deutsch! 🇩🇪**
+**Set sail for fluency with the Straw Hat Crew! ⚓🏴‍☠️**

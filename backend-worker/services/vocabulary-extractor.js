@@ -1,5 +1,5 @@
-const supabase = require('../supabase');
-const { translateToGerman } = require('./translation');
+import { getSupabaseClient } from '../supabase.js';
+import { translateToGerman } from './translation.js';
 
 // Common German stop words to filter out
 const STOP_WORDS = new Set([
@@ -19,10 +19,12 @@ const STOP_WORDS = new Set([
  * @param {string} germanText - The German text to extract words from
  * @returns {Promise<Array>} Array of new words added
  */
-async function extractVocabulary(germanText) {
+export async function extractVocabulary(germanText, env) {
   if (!germanText || typeof germanText !== 'string') {
     return [];
   }
+
+  const supabase = getSupabaseClient(env);
 
   // Remove punctuation and split into words
   const rawWords = germanText
@@ -69,7 +71,6 @@ async function extractVocabulary(germanText) {
           await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
           console.error(`Failed to get meaning for "${cleanWord}":`, error.message);
-          // Continue without meaning if translation fails
         }
 
         // Insert new word with meaning
@@ -106,7 +107,9 @@ async function extractVocabulary(germanText) {
  * Get vocabulary statistics
  * @returns {Promise<Object>} Statistics about vocabulary
  */
-async function getVocabularyStats() {
+export async function getVocabularyStats(env) {
+  const supabase = getSupabaseClient(env);
+  
   // Total vocabulary
   const { count: total, error: totalError } = await supabase
     .from('vocabulary')
@@ -159,8 +162,3 @@ async function getVocabularyStats() {
     averagePerWeek
   };
 }
-
-module.exports = {
-  extractVocabulary,
-  getVocabularyStats
-};

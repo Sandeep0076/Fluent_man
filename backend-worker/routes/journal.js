@@ -1,7 +1,7 @@
-const express = require('express');
-const router = express.Router();
-const supabase = require('../supabase');
-// const { extractVocabulary } = require('../services/vocabulary-extractor'); (disabled as per user request)
+import { Hono } from 'hono'
+import { getSupabaseClient } from '../supabase.js'
+
+const router = new Hono()
 
 // Helper to split text into bullets
 function splitIntoBullets(text) {
@@ -13,13 +13,14 @@ function splitIntoBullets(text) {
  * GET /api/journal/entries
  * Get all journal entries with pagination
  */
-router.get('/entries', async (req, res) => {
+router.get('/entries', async (c) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const supabase = getSupabaseClient(c.env);
+    const page = parseInt(c.req.query('page')) || 1;
+    const limit = parseInt(c.req.query('limit')) || 20;
     const offset = (page - 1) * limit;
 
-    const sort = req.query.sort || 'newest';
+    const sort = c.req.query('sort') || 'newest';
     let orderColumn = 'created_at';
     let ascending = false;
 
@@ -57,7 +58,7 @@ router.get('/entries', async (req, res) => {
 
     if (countError) throw countError;
 
-    res.json({
+    return c.json({
       success: true,
       data: entries || [],
       pagination: {
@@ -69,10 +70,10 @@ router.get('/entries', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching journal entries:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to fetch journal entries'
-    });
+    }, 500);
   }
 });
 
@@ -80,34 +81,36 @@ router.get('/entries', async (req, res) => {
  * GET /api/journal/entry/:id
  * Get a specific journal entry
  */
-router.get('/entry/:id', async (req, res) => {
+router.get('/entry/:id', async (c) => {
   try {
+    const supabase = getSupabaseClient(c.env);
+    const id = c.req.param('id')
     const { data: entry, error } = await supabase
       .from('journal_entries')
       .select('*')
-      .eq('id', req.params.id)
+      .eq('id', id)
       .single();
 
     if (error) {
       if (error.code === 'PGRST116') {
-        return res.status(404).json({
+        return c.json({
           success: false,
           error: 'Journal entry not found'
-        });
+        }, 404);
       }
       throw error;
     }
 
-    res.json({
+    return c.json({
       success: true,
       data: entry
     });
   } catch (error) {
     console.error('Error fetching journal entry:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to fetch journal entry'
-    });
+    }, 500);
   }
 });
 
@@ -115,21 +118,22 @@ router.get('/entry/:id', async (req, res) => {
  * POST /api/journal/entry
  * Create a new journal entry
  */
-router.post('/entry', async (req, res) => {
+router.post('/entry', async (c) => {
   try {
-    const { english_text, german_text, session_duration } = req.body;
+    const supabase = getSupabaseClient(c.env);
+    const { english_text, german_text, session_duration } = await c.req.json();
 
     // Validation
     if (!english_text || !german_text) {
-      return res.status(400).json({
+      return c.json({
         success: false,
         error: 'Both English and German text are required'
-      });
+      }, 400);
     }
 
-    // Split text into bullets (by newlines)
-    const englishBullets = english_text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
-    const germanBullets = german_text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    // Split text into bullets
+    const englishBullets = splitIntoBullets(english_text);
+    const germanBullets = splitIntoBullets(german_text);
 
     // Count words in German text
     const wordCount = german_text.trim().split(/\s+/).length;
@@ -150,26 +154,23 @@ router.post('/entry', async (req, res) => {
 
     if (insertError) {
       console.error('Supabase Insert Error:', insertError);
-      return res.status(500).json({
+      return c.json({
         success: false,
         error: `Database error: ${insertError.message}`,
         details: insertError
-      });
+      }, 500);
     }
 
-    // Extract vocabulary from German text (disabled as per user request)
-    // const newWords = await extractVocabulary(german_text);
     const newWords = [];
 
     // Update progress stats for today
     const today = new Date().toISOString().split('T')[0];
 
-    // Check if stats exist for today (ilike for dates doesn't work well, using standard eq)
     const { data: existingStats, error: statsFetchError } = await supabase
       .from('progress_stats')
       .select('*')
       .eq('date', today)
-      .maybeSingle(); // maybeSingle doesn't throw if not found
+      .maybeSingle();
 
     if (statsFetchError) {
       console.warn('Error fetching progress stats:', statsFetchError.message);
@@ -199,20 +200,20 @@ router.post('/entry', async (req, res) => {
       if (statsInsertError) console.error('Error inserting stats:', statsInsertError.message);
     }
 
-    res.status(201).json({
+    return c.json({
       success: true,
       data: {
         ...newEntry,
         new_words: newWords
       }
-    });
+    }, 201);
   } catch (error) {
     console.error('Unhandled Error in POST /journal/entry:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'An unexpected error occurred while saving your entry.',
       message: error.message
-    });
+    }, 500);
   }
 });
 
@@ -220,28 +221,28 @@ router.post('/entry', async (req, res) => {
  * PUT /api/journal/entry/:id
  * Update a journal entry
  */
-router.put('/entry/:id', async (req, res) => {
+router.put('/entry/:id', async (c) => {
   try {
-    const { english_text, german_text } = req.body;
+    const supabase = getSupabaseClient(c.env);
+    const id = c.req.param('id')
+    const { english_text, german_text } = await c.req.json();
 
-    // Check if entry exists
     const { data: existing, error: fetchError } = await supabase
       .from('journal_entries')
       .select('*')
-      .eq('id', req.params.id)
+      .eq('id', id)
       .single();
 
     if (fetchError) {
       if (fetchError.code === 'PGRST116') {
-        return res.status(404).json({
+        return c.json({
           success: false,
           error: 'Journal entry not found'
-        });
+        }, 404);
       }
       throw fetchError;
     }
 
-    // Prepare update data
     const updateData = {};
 
     if (english_text) {
@@ -255,37 +256,28 @@ router.put('/entry/:id', async (req, res) => {
       updateData.word_count = german_text.trim().split(/\s+/).length;
     }
 
-    // Update entry
     const { data: updated, error } = await supabase
       .from('journal_entries')
       .update(updateData)
-      .eq('id', req.params.id)
+      .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
 
-    // If German text changed, re-extract vocabulary (disabled as per user request)
-    let newWords = [];
-    /*
-    if (german_text && german_text !== existing.german_text) {
-      newWords = await extractVocabulary(german_text);
-    }
-    */
-
-    res.json({
+    return c.json({
       success: true,
       data: {
         ...updated,
-        new_words: newWords
+        new_words: []
       }
     });
   } catch (error) {
     console.error('Error updating journal entry:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to update journal entry'
-    });
+    }, 500);
   }
 });
 
@@ -293,25 +285,27 @@ router.put('/entry/:id', async (req, res) => {
  * DELETE /api/journal/entry/:id
  * Delete a journal entry
  */
-router.delete('/entry/:id', async (req, res) => {
+router.delete('/entry/:id', async (c) => {
   try {
+    const supabase = getSupabaseClient(c.env);
+    const id = c.req.param('id')
     const { error } = await supabase
       .from('journal_entries')
       .delete()
-      .eq('id', req.params.id);
+      .eq('id', id);
 
     if (error) throw error;
 
-    res.json({
+    return c.json({
       success: true,
       message: 'Journal entry deleted successfully'
     });
   } catch (error) {
     console.error('Error deleting journal entry:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to delete journal entry'
-    });
+    }, 500);
   }
 });
 
@@ -319,31 +313,31 @@ router.delete('/entry/:id', async (req, res) => {
  * GET /api/journal/search
  * Search journal entries
  */
-router.get('/search', async (req, res) => {
+router.get('/search', async (c) => {
   try {
-    const { q, startDate, endDate } = req.query;
+    const supabase = getSupabaseClient(c.env);
+    const q = c.req.query('q')
+    const startDate = c.req.query('startDate')
+    const endDate = c.req.query('endDate')
 
     if (!q && !startDate && !endDate) {
-      return res.status(400).json({
+      return c.json({
         success: false,
         error: 'Search query or date range required'
-      });
+      }, 400);
     }
 
     let query = supabase.from('journal_entries').select('*');
 
-    // Add search filter
     if (q) {
       query = query.or(`english_text.ilike.%${q}%,german_text.ilike.%${q}%`);
     }
 
-    // Add date filters
     if (startDate) {
       query = query.gte('created_at', startDate);
     }
 
     if (endDate) {
-      // Add one day to include the end date
       const endDateTime = new Date(endDate);
       endDateTime.setDate(endDateTime.getDate() + 1);
       query = query.lt('created_at', endDateTime.toISOString());
@@ -355,18 +349,18 @@ router.get('/search', async (req, res) => {
 
     if (error) throw error;
 
-    res.json({
+    return c.json({
       success: true,
       data: results || [],
       count: results ? results.length : 0
     });
   } catch (error) {
     console.error('Error searching journal entries:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to search journal entries'
-    });
+    }, 500);
   }
 });
 
-module.exports = router;
+export default router

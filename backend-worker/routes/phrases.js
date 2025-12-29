@@ -1,6 +1,7 @@
-const express = require('express');
-const router = express.Router();
-const supabase = require('../supabase');
+import { Hono } from 'hono'
+import { getSupabaseClient } from '../supabase.js'
+
+const router = new Hono()
 
 // Built-in common phrases
 const BUILT_IN_PHRASES = [
@@ -18,9 +19,9 @@ const BUILT_IN_PHRASES = [
  * GET /api/phrases
  * Get all phrases (built-in + custom)
  */
-router.get('/', async (req, res) => {
+router.get('/', async (c) => {
   try {
-    // Get custom phrases from database
+    const supabase = getSupabaseClient(c.env);
     const { data: customPhrases, error } = await supabase
       .from('custom_phrases')
       .select('id, english, german, created_at, times_reviewed')
@@ -28,13 +29,10 @@ router.get('/', async (req, res) => {
 
     if (error) throw error;
 
-    // Add builtin flag to custom phrases
     const customWithFlag = (customPhrases || []).map(p => ({ ...p, builtin: false }));
-
-    // Combine built-in and custom phrases
     const allPhrases = [...BUILT_IN_PHRASES, ...customWithFlag];
 
-    res.json({
+    return c.json({
       success: true,
       data: allPhrases,
       count: {
@@ -45,10 +43,10 @@ router.get('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching phrases:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to fetch phrases'
-    });
+    }, 500);
   }
 });
 
@@ -56,36 +54,28 @@ router.get('/', async (req, res) => {
  * POST /api/phrases
  * Add a custom phrase
  */
-router.post('/', async (req, res) => {
+router.post('/', async (c) => {
   try {
-    const { english, german } = req.body;
+    const supabase = getSupabaseClient(c.env);
+    const { english, german } = await c.req.json();
 
-    // Validation
     if (!english || !german) {
-      return res.status(400).json({
+      return c.json({
         success: false,
         error: 'Both English and German text are required'
-      });
-    }
-
-    if (typeof english !== 'string' || typeof german !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: 'English and German text must be strings'
-      });
+      }, 400);
     }
 
     const cleanEnglish = english.trim();
     const cleanGerman = german.trim();
 
     if (cleanEnglish.length === 0 || cleanGerman.length === 0) {
-      return res.status(400).json({
+      return c.json({
         success: false,
         error: 'English and German text cannot be empty'
-      });
+      }, 400);
     }
 
-    // Check if phrase already exists
     const { data: existing } = await supabase
       .from('custom_phrases')
       .select('*')
@@ -93,14 +83,13 @@ router.post('/', async (req, res) => {
       .single();
 
     if (existing) {
-      return res.status(409).json({
+      return c.json({
         success: false,
         error: 'This phrase already exists',
         data: existing
-      });
+      }, 409);
     }
 
-    // Insert new phrase
     const { data: newPhrase, error } = await supabase
       .from('custom_phrases')
       .insert({
@@ -113,19 +102,19 @@ router.post('/', async (req, res) => {
 
     if (error) throw error;
 
-    res.status(201).json({
+    return c.json({
       success: true,
       data: {
         ...newPhrase,
         builtin: false
       }
-    });
+    }, 201);
   } catch (error) {
     console.error('Error adding custom phrase:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to add custom phrase'
-    });
+    }, 500);
   }
 });
 
@@ -133,25 +122,27 @@ router.post('/', async (req, res) => {
  * DELETE /api/phrases/:id
  * Delete a custom phrase
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (c) => {
   try {
+    const supabase = getSupabaseClient(c.env);
+    const id = c.req.param('id')
     const { error } = await supabase
       .from('custom_phrases')
       .delete()
-      .eq('id', req.params.id);
+      .eq('id', id);
 
     if (error) throw error;
 
-    res.json({
+    return c.json({
       success: true,
       message: 'Custom phrase deleted successfully'
     });
   } catch (error) {
     console.error('Error deleting custom phrase:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to delete custom phrase'
-    });
+    }, 500);
   }
 });
 
@@ -159,44 +150,44 @@ router.delete('/:id', async (req, res) => {
  * PUT /api/phrases/:id/review
  * Increment review count for a phrase
  */
-router.put('/:id/review', async (req, res) => {
+router.put('/:id/review', async (c) => {
   try {
-    // Get current times_reviewed value
+    const supabase = getSupabaseClient(c.env);
+    const id = c.req.param('id')
     const { data: phrase, error: fetchError } = await supabase
       .from('custom_phrases')
       .select('times_reviewed')
-      .eq('id', req.params.id)
+      .eq('id', id)
       .single();
 
     if (fetchError) {
       if (fetchError.code === 'PGRST116') {
-        return res.status(404).json({
+        return c.json({
           success: false,
           error: 'Custom phrase not found'
-        });
+        }, 404);
       }
       throw fetchError;
     }
 
-    // Increment times_reviewed
     const { error } = await supabase
       .from('custom_phrases')
       .update({ times_reviewed: (phrase.times_reviewed || 0) + 1 })
-      .eq('id', req.params.id);
+      .eq('id', id);
 
     if (error) throw error;
 
-    res.json({
+    return c.json({
       success: true,
       message: 'Phrase review count updated'
     });
   } catch (error) {
     console.error('Error updating phrase review count:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to update phrase'
-    });
+    }, 500);
   }
 });
 
-module.exports = router;
+export default router

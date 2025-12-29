@@ -1,46 +1,47 @@
-const express = require('express');
-const router = express.Router();
-const { translateToGerman, translateMultipleSentences, translateToEnglish } = require('../services/translation');
+import { Hono } from 'hono'
+import { translateToGerman, translateMultipleSentences, translateToEnglish } from '../services/translation.js'
+
+const router = new Hono()
 
 /**
  * POST /api/translate
  * Translate English text to German
  */
-router.post('/', async (req, res) => {
+router.post('/', async (c) => {
   try {
-    const { text, multiSentence } = req.body;
+    const { text, multiSentence } = await c.req.json();
 
     // Validation
     if (!text || typeof text !== 'string') {
-      return res.status(400).json({
+      return c.json({
         success: false,
         error: 'Valid text is required for translation'
-      });
+      }, 400);
     }
 
     if (text.trim().length === 0) {
-      return res.status(400).json({
+      return c.json({
         success: false,
         error: 'Text cannot be empty'
-      });
+      }, 400);
     }
 
     if (text.length > 5000) {
-      return res.status(400).json({
+      return c.json({
         success: false,
         error: 'Text is too long (maximum 5000 characters)'
-      });
+      }, 400);
     }
 
     // Translate
     let translatedText;
     if (multiSentence) {
-      translatedText = await translateMultipleSentences(text);
+      translatedText = await translateMultipleSentences(text, c.env);
     } else {
-      translatedText = await translateToGerman(text);
+      translatedText = await translateToGerman(text, c.env);
     }
 
-    res.json({
+    return c.json({
       success: true,
       data: {
         original: text,
@@ -61,11 +62,11 @@ router.post('/', async (req, res) => {
       errorMessage = 'Translation service is temporarily unavailable.';
     }
 
-    res.status(500).json({
+    return c.json({
       success: false,
       error: errorMessage,
       details: error.message
-    });
+    }, 500);
   }
 });
 
@@ -73,20 +74,20 @@ router.post('/', async (req, res) => {
  * POST /api/translate/reverse
  * Translate German text to English (for manual vocabulary addition)
  */
-router.post('/reverse', async (req, res) => {
+router.post('/reverse', async (c) => {
   try {
-    const { text } = req.body;
+    const { text } = await c.req.json();
 
     if (!text || typeof text !== 'string') {
-      return res.status(400).json({
+      return c.json({
         success: false,
         error: 'Valid text is required'
-      });
+      }, 400);
     }
 
-    const translatedText = await translateToEnglish(text);
+    const translatedText = await translateToEnglish(text, c.env);
 
-    res.json({
+    return c.json({
       success: true,
       data: {
         original: text,
@@ -96,12 +97,12 @@ router.post('/reverse', async (req, res) => {
     });
   } catch (error) {
     console.error('Reverse translation error:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Translation failed',
       details: error.message
-    });
+    }, 500);
   }
 });
 
-module.exports = router;
+export default router

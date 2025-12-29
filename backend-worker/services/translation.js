@@ -1,5 +1,4 @@
-const axios = require('axios');
-const { translateWithGemini, translateToEnglish } = require('./gemini-translation');
+import { translateWithGemini, translateToEnglish } from './gemini-translation.js';
 
 /**
  * Translate text between languages using MyMemory API (Fallback)
@@ -7,46 +6,45 @@ const { translateWithGemini, translateToEnglish } = require('./gemini-translatio
  * @param {string} langpair - The language pair (e.g., 'en|de' or 'de|en')
  * @returns {Promise<string>} The translated text
  */
-async function translateWithMyMemory(text, langpair = 'en|de') {
+export async function translateWithMyMemory(text, langpair = 'en|de') {
   if (!text || typeof text !== 'string') {
     throw new Error('Invalid text provided for translation');
   }
 
   try {
-    const response = await axios.get('https://api.mymemory.translated.net/get', {
-      params: {
-        q: text,
-        langpair: langpair
-      },
-      timeout: 10000
+    const url = new URL('https://api.mymemory.translated.net/get');
+    url.searchParams.append('q', text);
+    url.searchParams.append('langpair', langpair);
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
     });
 
-    if (response.data && response.data.responseData && response.data.responseData.translatedText) {
-      return response.data.responseData.translatedText;
+    if (!response.ok) {
+      throw new Error(`Translation API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data && data.responseData && data.responseData.translatedText) {
+      return data.responseData.translatedText;
     } else {
       throw new Error('Invalid response from translation API');
     }
   } catch (error) {
-    if (error.code === 'ECONNABORTED') {
-      throw new Error('Translation request timed out. Please try again.');
-    } else if (error.response) {
-      throw new Error(`Translation API error: ${error.response.status}`);
-    } else if (error.request) {
-      throw new Error('No response from translation API. Check your internet connection.');
-    } else {
-      throw new Error(`Translation failed: ${error.message}`);
-    }
+    throw new Error(`Translation failed: ${error.message}`);
   }
 }
 
 /**
  * Translate text from English to German using Gemini with MyMemory fallback
  * @param {string} text - The English text to translate
+ * @param {object} env - The environment object containing API keys
  * @returns {Promise<string>} The translated German text
  */
-async function translateToGerman(text) {
+export async function translateToGerman(text, env = null) {
   try {
-    return await translateWithGemini(text);
+    return await translateWithGemini(text, env);
   } catch (error) {
     console.warn(`[Translation] Gemini (EN->DE) failed, falling back to MyMemory. Error: ${error.message}`);
     return await translateWithMyMemory(text, 'en|de');
@@ -56,11 +54,12 @@ async function translateToGerman(text) {
 /**
  * Translate text from German to English using Gemini with MyMemory fallback
  * @param {string} text - The German word or phrase to translate
+ * @param {object} env - The environment object containing API keys
  * @returns {Promise<string>} The translated English text
  */
-async function translateToEnglishWithFallback(text) {
+export async function translateToEnglishWithFallback(text, env = null) {
   try {
-    return await translateToEnglish(text);
+    return await translateToEnglish(text, env);
   } catch (error) {
     console.warn(`[Translation] Gemini (DE->EN) failed, falling back to MyMemory. Error: ${error.message}`);
     return await translateWithMyMemory(text, 'de|en');
@@ -70,9 +69,10 @@ async function translateToEnglishWithFallback(text) {
 /**
  * Translate multiple sentences (split by newlines or periods)
  * @param {string} text - The English text with multiple sentences
+ * @param {object} env - The environment object containing API keys
  * @returns {Promise<string>} The translated German text
  */
-async function translateMultipleSentences(text) {
+export async function translateMultipleSentences(text, env = null) {
   if (!text || typeof text !== 'string') {
     throw new Error('Invalid text provided for translation');
   }
@@ -89,14 +89,13 @@ async function translateMultipleSentences(text) {
     }
 
     try {
-      const translated = await translateToGerman(sentence.trim());
+      const translated = await translateToGerman(sentence.trim(), env);
       translations.push(translated);
 
-      // Add a small delay to avoid rate limiting (100ms between requests)
+      // Add a small delay to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
       console.error(`Error translating sentence: ${sentence}`, error.message);
-      // If translation fails, keep original text
       translations.push(sentence);
     }
   }
@@ -104,9 +103,4 @@ async function translateMultipleSentences(text) {
   return translations.join(' ').trim();
 }
 
-module.exports = {
-  translateToGerman,
-  translateMultipleSentences,
-  translateToEnglish: translateToEnglishWithFallback,
-  translateWithMyMemory
-};
+export { translateToEnglishWithFallback as translateToEnglish };
