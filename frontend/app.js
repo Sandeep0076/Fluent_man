@@ -1,7 +1,7 @@
 // API Base URL (Update the production URL after first deployment)
 const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:8789'
-    : 'https://deutschtagebuch-api.<your-subdomain>.workers.dev';
+    : 'https://deutschtagebuch-api.sandeeppathania-mail.workers.dev';
 
 // Application State
 const state = {
