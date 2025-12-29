@@ -129,7 +129,6 @@ function updateTimerDisplay() {
 }
 
 // --- DASHBOARD ---
-let progressChartInstance = null;
 
 // Helper function to update user level
 async function updateUserLevel() {
@@ -178,76 +177,9 @@ async function loadDashboard() {
         if (bestStreakEl) {
             bestStreakEl.innerHTML = `Personal Best: ${streak.data.longest} Days`;
         }
-
-        // Load chart data
-        await loadChart();
     } catch (error) {
         console.error('Error loading dashboard:', error);
         document.getElementById('user-level').innerText = 'lvl 0';
-    }
-}
-
-async function loadChart() {
-    try {
-        const chartData = await apiCall('/progress/chart-data?days=7');
-
-        const ctx = document.getElementById('progressChart').getContext('2d');
-
-        if (progressChartInstance) {
-            progressChartInstance.destroy();
-        }
-
-        progressChartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: chartData.data.labels,
-                datasets: [{
-                    label: 'Words Learned',
-                    data: chartData.data.datasets.words,
-                    borderColor: '#2563eb', // Blue-600
-                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                    borderWidth: 3,
-                    tension: 0.4,
-                    fill: true,
-                    pointBackgroundColor: '#2563eb',
-                    pointBorderColor: '#ffffff',
-                    pointRadius: 6,
-                    pointHoverRadius: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                        titleColor: '#1e293b',
-                        bodyColor: '#475569',
-                        borderColor: 'rgba(0, 0, 0, 0.1)',
-                        borderWidth: 1,
-                        padding: 12,
-                        displayColors: false,
-                        cornerRadius: 12,
-                        titleFont: { family: 'Outfit', size: 14 },
-                        bodyFont: { family: 'Outfit', size: 13 }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { borderDash: [4, 4], color: 'rgba(0, 0, 0, 0.05)' },
-                        ticks: { font: { family: 'Outfit' }, color: '#64748b' }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { family: 'Outfit' }, color: '#64748b' }
-                    }
-                }
-            }
-        });
-    } catch (error) {
-        console.error('Error loading chart:', error);
     }
 }
 
