@@ -153,7 +153,10 @@ function navTo(viewId) {
             state.journeyMap.refresh();
         }
     }
-    if (viewId === 'phrases') loadPhrases();
+    if (viewId === 'phrases') {
+        loadPhraseCategories();
+        loadPhrases();
+    }
     if (viewId === 'journal') {
         initializeBulletPoints();
         loadJournalHistory();
@@ -1256,9 +1259,48 @@ async function deleteCategory(event, id) {
 }
 
 // --- PHRASES ---
+let selectedPhraseCategoryId = 'all';
+let phraseCategories = [];
+let editingPhraseId = null;
+
+function toggleAddPhraseSection() {
+    console.log('🔍 DEBUG: toggleAddPhraseSection called');
+    const section = document.getElementById('add-phrase-section');
+    const toggleBtn = document.getElementById('toggle-add-phrase-btn');
+    const isHidden = section.classList.contains('hidden');
+
+    if (isHidden) {
+        section.classList.remove('hidden');
+        if (toggleBtn) {
+            toggleBtn.querySelector('span').innerHTML = '✕';
+            toggleBtn.classList.replace('bg-blue-600', 'bg-slate-600');
+            toggleBtn.classList.replace('hover:bg-blue-700', 'hover:bg-slate-700');
+        }
+    } else {
+        section.classList.add('hidden');
+        if (toggleBtn) {
+            toggleBtn.querySelector('span').innerHTML = '+';
+            toggleBtn.classList.replace('bg-slate-600', 'bg-blue-600');
+            toggleBtn.classList.replace('hover:bg-slate-700', 'hover:bg-blue-700');
+        }
+
+        // Clear form when hiding
+        document.getElementById('new-phrase-english').value = '';
+        document.getElementById('new-phrase-german').value = '';
+        document.getElementById('new-phrase-category').value = '';
+    }
+}
+
+// DEBUG: Verify function is globally accessible
+console.log('🔍 DEBUG: toggleAddPhraseSection defined?', typeof toggleAddPhraseSection);
+console.log('🔍 DEBUG: toggleAddPhraseSection on window?', typeof window.toggleAddPhraseSection);
+
 async function loadPhrases() {
     try {
-        const result = await apiCall('/phrases');
+        const categoryParam = selectedPhraseCategoryId && selectedPhraseCategoryId !== 'all'
+            ? `?category_id=${selectedPhraseCategoryId}`
+            : '';
+        const result = await apiCall(`/phrases${categoryParam}`);
         renderPhrases(result.data);
     } catch (error) {
         console.error('Error loading phrases:', error);
@@ -1269,15 +1311,33 @@ function renderPhrases(phrases) {
     const container = document.getElementById('phrases-container');
     container.innerHTML = '';
 
+    if (phrases.length === 0) {
+        container.innerHTML = `
+            <div class="col-span-full text-center py-20 text-slate-400 opacity-60">
+                <div class="text-6xl mb-4 grayscale opacity-50">📢</div>
+                <h3 class="text-2xl font-bold">No phrases yet</h3>
+                <p>Add your first phrase to get started.</p>
+            </div>
+        `;
+        return;
+    }
+
     phrases.forEach((phrase, index) => {
         const div = document.createElement('div');
-        div.className = 'glass-card rounded-2xl overflow-hidden cursor-pointer group hover:scale-[1.01] transition-all border-2 border-[var(--op-wood)] shadow-[4px_4px_0px_#5d3615] bg-[#fffcf0]';
-        div.onclick = () => toggleTranslation(index);
+        div.className = 'glass-card rounded-2xl overflow-hidden cursor-pointer group hover:scale-[1.01] transition-all border-2 border-[var(--op-wood)] shadow-[4px_4px_0px_#5d3615] bg-[#fffcf0] relative';
 
         const customBadge = !phrase.builtin ? '<span class="text-[10px] bg-[var(--op-blue)] text-white px-2 py-0.5 rounded-full font-black uppercase">Pirated Copy</span>' : '';
+        
+        // Only show edit button for custom phrases
+        const editButton = !phrase.builtin ? `
+            <button onclick="showEditPhraseModal(event, ${phrase.id})"
+                class="absolute top-2 right-2 text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity text-xl font-black z-10"
+                title="Edit Phrase">✏️</button>
+        ` : '';
 
         div.innerHTML = `
-            <div class="p-8">
+            ${editButton}
+            <div class="p-8" onclick="toggleTranslation(${index})">
                 <div class="flex justify-between items-start mb-4">
                     <span class="text-[10px] font-black text-[var(--op-blue)] uppercase tracking-widest op-font">English Melody</span>
                     <div class="flex gap-2 items-center">
@@ -1287,7 +1347,7 @@ function renderPhrases(phrases) {
                 </div>
                 <p class="text-2xl text-slate-800 font-bold leading-relaxed op-font">${phrase.english}</p>
             </div>
-            <div id="phrase-de-${index}" class="bg-[var(--op-yellow)]/20 p-8 border-t-2 border-dashed border-[#5d3615] hidden">
+            <div id="phrase-de-${index}" class="bg-[var(--op-yellow)]/20 p-8 border-t-2 border-dashed border-[#5d3615] hidden" onclick="toggleTranslation(${index})">
                 <div class="text-[10px] font-black text-[var(--op-red)] uppercase tracking-widest mb-2 op-font">Brook's Translation (Deutsch)</div>
                 <p class="text-3xl font-black text-[#5d3615] tracking-tight op-font">${phrase.german}</p>
                 <div class="mt-4 text-[10px] text-slate-500 italic">Yo-ho-ho-ho! 🎻</div>
@@ -1300,6 +1360,268 @@ function renderPhrases(phrases) {
 function toggleTranslation(index) {
     const el = document.getElementById(`phrase-de-${index}`);
     el.classList.toggle('hidden');
+}
+
+async function addPhrase() {
+    const englishInput = document.getElementById('new-phrase-english');
+    const germanInput = document.getElementById('new-phrase-german');
+    const categorySelect = document.getElementById('new-phrase-category');
+
+    const english = englishInput.value.trim();
+    const german = germanInput.value.trim();
+    const category_id = categorySelect.value;
+
+    if (!english) {
+        alert('Please enter an English phrase!');
+        return;
+    }
+
+    try {
+        const payload = { english };
+        if (german) {
+            payload.german = german;
+        }
+        if (category_id) {
+            payload.category_id = category_id;
+        }
+
+        await apiCall('/phrases', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        // Clear inputs
+        englishInput.value = '';
+        germanInput.value = '';
+        categorySelect.value = '';
+
+        // Reload phrases
+        await loadPhrases();
+
+        // Show success feedback
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+        successMsg.innerHTML = '✓ Phrase added successfully!';
+        document.body.appendChild(successMsg);
+
+        setTimeout(() => successMsg.remove(), 3000);
+
+        // Update dashboard if visible
+        if (state.currentView === 'dashboard') {
+            await loadDashboard();
+        }
+    } catch (error) {
+        alert('Failed to add phrase: ' + error.message);
+    }
+}
+
+// --- PHRASE CATEGORIES ---
+async function loadPhraseCategories() {
+    try {
+        const result = await apiCall('/phrases/categories');
+        phraseCategories = result.data;
+        renderPhraseCategories();
+        updatePhraseCategorySelects();
+    } catch (error) {
+        console.error('Error loading phrase categories:', error);
+    }
+}
+
+function renderPhraseCategories() {
+    const container = document.getElementById('phrase-category-list');
+    if (!container) return;
+
+    // Keep "All Phrases" button
+    container.innerHTML = `
+        <button onclick="selectPhraseCategory('all')" id="phrase-cat-all"
+            class="w-full text-left px-4 py-3 rounded-xl transition-all font-medium ${selectedPhraseCategoryId === 'all' ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-white/50 text-slate-600 hover:bg-white hover:shadow-sm'}">
+            📁 All Phrases
+        </button>
+    `;
+
+    phraseCategories.forEach(cat => {
+        const isActive = selectedPhraseCategoryId == cat.id;
+        const btn = document.createElement('button');
+        btn.onclick = () => selectPhraseCategory(cat.id);
+        btn.id = `phrase-cat-${cat.id}`;
+        btn.className = `w-full text-left px-4 py-3 rounded-xl transition-all font-medium flex justify-between items-center group ${isActive ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-white/50 text-slate-600 hover:bg-white hover:shadow-sm'}`;
+
+        btn.innerHTML = `
+            <span>📁 ${cat.name}</span>
+            <span onclick="deletePhraseCategory(event, ${cat.id})" class="opacity-0 group-hover:opacity-100 text-xs bg-red-400 hover:bg-red-500 text-white p-1 rounded-md transition-all">✕</span>
+        `;
+        container.appendChild(btn);
+    });
+}
+
+function updatePhraseCategorySelects() {
+    const selects = ['new-phrase-category', 'edit-phrase-category'];
+    
+    selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        const currentVal = select.value;
+        select.innerHTML = '<option value="">No Category</option>';
+
+        phraseCategories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.id;
+            option.textContent = cat.name;
+            select.appendChild(option);
+        });
+
+        select.value = currentVal;
+    });
+}
+
+function selectPhraseCategory(id) {
+    selectedPhraseCategoryId = id;
+    renderPhraseCategories();
+    loadPhrases();
+}
+
+function showAddPhraseCategoryModal() {
+    const modal = document.getElementById('add-phrase-category-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.getElementById('new-phrase-category-name').focus();
+}
+
+function hideAddPhraseCategoryModal() {
+    const modal = document.getElementById('add-phrase-category-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    document.getElementById('new-phrase-category-name').value = '';
+}
+
+async function addPhraseCategory() {
+    const nameInput = document.getElementById('new-phrase-category-name');
+    const name = nameInput.value.trim();
+
+    if (!name) {
+        alert('Please enter a category name!');
+        return;
+    }
+
+    try {
+        await apiCall('/phrases/categories', {
+            method: 'POST',
+            body: JSON.stringify({ name })
+        });
+
+        hideAddPhraseCategoryModal();
+        await loadPhraseCategories();
+
+        // Show success feedback
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[110] animate-fade-in';
+        successMsg.innerHTML = '✓ Category created successfully!';
+        document.body.appendChild(successMsg);
+        setTimeout(() => successMsg.remove(), 3000);
+
+    } catch (error) {
+        alert('Failed to add category: ' + error.message);
+    }
+}
+
+async function deletePhraseCategory(event, id) {
+    event.stopPropagation();
+    if (!confirm('Are you sure you want to delete this category? Phrases inside will not be deleted but will no longer have a category.')) return;
+
+    try {
+        await apiCall(`/phrases/categories/${id}`, { method: 'DELETE' });
+
+        if (selectedPhraseCategoryId == id) {
+            selectedPhraseCategoryId = 'all';
+        }
+
+        await loadPhraseCategories();
+        await loadPhrases();
+    } catch (error) {
+        alert('Failed to delete category: ' + error.message);
+    }
+}
+
+// --- EDIT PHRASE ---
+async function showEditPhraseModal(event, phraseId) {
+    event.stopPropagation();
+    
+    try {
+        // Fetch the phrase details
+        const result = await apiCall(`/phrases/${phraseId}`);
+        const phrase = result.data;
+
+        // Populate the modal
+        document.getElementById('edit-phrase-english').value = phrase.english;
+        document.getElementById('edit-phrase-german').value = phrase.german;
+        document.getElementById('edit-phrase-category').value = phrase.category_id || '';
+
+        editingPhraseId = phraseId;
+
+        // Show modal
+        const modal = document.getElementById('edit-phrase-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    } catch (error) {
+        console.error('Error loading phrase:', error);
+        alert('Failed to load phrase details');
+    }
+}
+
+function hideEditPhraseModal() {
+    const modal = document.getElementById('edit-phrase-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    
+    // Clear form
+    document.getElementById('edit-phrase-english').value = '';
+    document.getElementById('edit-phrase-german').value = '';
+    document.getElementById('edit-phrase-category').value = '';
+    editingPhraseId = null;
+}
+
+async function updatePhrase() {
+    if (!editingPhraseId) return;
+
+    const english = document.getElementById('edit-phrase-english').value.trim();
+    const german = document.getElementById('edit-phrase-german').value.trim();
+    const category_id = document.getElementById('edit-phrase-category').value;
+
+    if (!english) {
+        alert('Please enter an English phrase!');
+        return;
+    }
+
+    if (!german) {
+        alert('Please enter a German translation!');
+        return;
+    }
+
+    try {
+        const payload = { english, german };
+        if (category_id) {
+            payload.category_id = category_id;
+        }
+
+        await apiCall(`/phrases/${editingPhraseId}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+
+        hideEditPhraseModal();
+        await loadPhrases();
+
+        // Show success feedback
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+        successMsg.innerHTML = '✓ Phrase updated successfully!';
+        document.body.appendChild(successMsg);
+
+        setTimeout(() => successMsg.remove(), 3000);
+    } catch (error) {
+        alert('Failed to update phrase: ' + error.message);
+    }
 }
 
 // --- NOTES (formerly MOTIVATION) ---

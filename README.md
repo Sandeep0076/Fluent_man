@@ -256,7 +256,7 @@ For detailed troubleshooting and advanced deployment options, see [`QUICKSTART.m
    - Click "Translate" to get AI-powered German translation
    - Edit the German version if needed
    - Click German words to add them directly to vocabulary
-   - Click "Save Dash Slash" to save entry and trigger wanted poster animation
+   - Click "Gum Gum no" to save entry and trigger wanted poster animation
 
 2. **Review Vocabulary (Nami's Maps):**
    - Visit "Nami's Navigation Room" to see all learned words

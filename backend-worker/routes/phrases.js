@@ -17,15 +17,25 @@ const BUILT_IN_PHRASES = [
 
 /**
  * GET /api/phrases
- * Get all phrases (built-in + custom)
+ * Get all phrases (built-in + custom) with optional category filtering
  */
 router.get('/', async (c) => {
   try {
     const supabase = getSupabaseClient(c.env);
-    const { data: customPhrases, error } = await supabase
+    const category_id = c.req.query('category_id');
+
+    let query = supabase
       .from('custom_phrases')
-      .select('id, english, german, created_at, times_reviewed')
-      .order('created_at', { ascending: false });
+      .select('id, english, german, created_at, times_reviewed, category_id');
+
+    // Add category filter
+    if (category_id && category_id !== 'all') {
+      query = query.eq('category_id', category_id);
+    }
+
+    query = query.order('created_at', { ascending: false });
+
+    const { data: customPhrases, error } = await query;
 
     if (error) throw error;
 
@@ -51,13 +61,114 @@ router.get('/', async (c) => {
 });
 
 /**
+ * GET /api/phrases/categories
+ * Get all phrase categories
+ */
+router.get('/categories', async (c) => {
+  try {
+    const supabase = getSupabaseClient(c.env);
+    const { data: categories, error } = await supabase
+      .from('phrase_categories')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+
+    return c.json({
+      success: true,
+      data: categories || []
+    });
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    return c.json({
+      success: false,
+      error: 'Failed to fetch categories'
+    }, 500);
+  }
+});
+
+/**
+ * POST /api/phrases/categories
+ * Add a new phrase category
+ */
+router.post('/categories', async (c) => {
+  try {
+    const supabase = getSupabaseClient(c.env);
+    const { name } = await c.req.json();
+    if (!name || name.trim().length === 0) {
+      return c.json({ success: false, error: 'Category name is required' }, 400);
+    }
+
+    const { data: category, error } = await supabase
+      .from('phrase_categories')
+      .insert({ name: name.trim() })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') { // Unique constraint
+        return c.json({ success: false, error: 'Category already exists' }, 409);
+      }
+      throw error;
+    }
+
+    return c.json({
+      success: true,
+      data: category
+    }, 201);
+  } catch (error) {
+    console.error('Error adding category:', error);
+    return c.json({
+      success: false,
+      error: 'Failed to add category'
+    }, 500);
+  }
+});
+
+/**
+ * DELETE /api/phrases/categories/:id
+ * Delete a phrase category (sets phrases' category_id to NULL)
+ */
+router.delete('/categories/:id', async (c) => {
+  try {
+    const supabase = getSupabaseClient(c.env);
+    const id = c.req.param('id');
+
+    // First, set category_id to NULL for all phrases in this category
+    await supabase
+      .from('custom_phrases')
+      .update({ category_id: null })
+      .eq('category_id', id);
+
+    // Then delete the category
+    const { error } = await supabase
+      .from('phrase_categories')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    return c.json({
+      success: true,
+      message: 'Category deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    return c.json({
+      success: false,
+      error: 'Failed to delete category'
+    }, 500);
+  }
+});
+
+/**
  * POST /api/phrases
  * Add a custom phrase
  */
 router.post('/', async (c) => {
   try {
     const supabase = getSupabaseClient(c.env);
-    const { english, german } = await c.req.json();
+    const { english, german, category_id } = await c.req.json();
 
     if (!english || !german) {
       return c.json({
@@ -95,7 +206,8 @@ router.post('/', async (c) => {
       .insert({
         english: cleanEnglish,
         german: cleanGerman,
-        times_reviewed: 0
+        times_reviewed: 0,
+        category_id: category_id || null
       })
       .select()
       .single();
@@ -119,13 +231,103 @@ router.post('/', async (c) => {
 });
 
 /**
+ * PUT /api/phrases/:id
+ * Edit an existing custom phrase
+ */
+router.put('/:id', async (c) => {
+  try {
+    const supabase = getSupabaseClient(c.env);
+    const id = c.req.param('id');
+    const { english, german, category_id } = await c.req.json();
+
+    if (!english || !german) {
+      return c.json({
+        success: false,
+        error: 'Both English and German text are required'
+      }, 400);
+    }
+
+    const cleanEnglish = english.trim();
+    const cleanGerman = german.trim();
+
+    if (cleanEnglish.length === 0 || cleanGerman.length === 0) {
+      return c.json({
+        success: false,
+        error: 'English and German text cannot be empty'
+      }, 400);
+    }
+
+    // Check if phrase exists
+    const { data: existing, error: fetchError } = await supabase
+      .from('custom_phrases')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        return c.json({
+          success: false,
+          error: 'Custom phrase not found'
+        }, 404);
+      }
+      throw fetchError;
+    }
+
+    // Check for duplicates (excluding current phrase)
+    const { data: duplicate } = await supabase
+      .from('custom_phrases')
+      .select('*')
+      .neq('id', id)
+      .or(`english.ilike.${cleanEnglish},german.ilike.${cleanGerman}`)
+      .single();
+
+    if (duplicate) {
+      return c.json({
+        success: false,
+        error: 'A phrase with this text already exists',
+        data: duplicate
+      }, 409);
+    }
+
+    // Update the phrase
+    const { data: updatedPhrase, error } = await supabase
+      .from('custom_phrases')
+      .update({
+        english: cleanEnglish,
+        german: cleanGerman,
+        category_id: category_id || null
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return c.json({
+      success: true,
+      data: {
+        ...updatedPhrase,
+        builtin: false
+      }
+    });
+  } catch (error) {
+    console.error('Error updating custom phrase:', error);
+    return c.json({
+      success: false,
+      error: 'Failed to update custom phrase'
+    }, 500);
+  }
+});
+
+/**
  * DELETE /api/phrases/:id
  * Delete a custom phrase
  */
 router.delete('/:id', async (c) => {
   try {
     const supabase = getSupabaseClient(c.env);
-    const id = c.req.param('id')
+    const id = c.req.param('id');
     const { error } = await supabase
       .from('custom_phrases')
       .delete()

@@ -1093,16 +1093,16 @@
                                     mastery.</p>
                             </div>
                         </div>
-                        <div class="flex gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                        <div class="flex gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 px-1">
                             <button onclick="translateText()"
-                                class="px-5 py-3 glass-card hover:bg-[var(--op-sky)] text-slate-800 rounded-xl transition-all flex items-center gap-2 whitespace-nowrap font-bold">
+                                class="px-4 sm:px-5 py-3 glass-card hover:bg-[var(--op-sky)] text-slate-800 rounded-xl transition-all flex items-center gap-2 whitespace-nowrap font-bold flex-shrink-0">
                                 <span>🌐</span> Translate
                             </button>
                             <button onclick="clearJournal()"
-                                class="px-5 py-3 glass-card hover:bg-white text-slate-400 hover:text-red-500 rounded-xl transition-all whitespace-nowrap font-medium">Clear</button>
+                                class="px-4 sm:px-5 py-3 glass-card hover:bg-white text-slate-400 hover:text-red-500 rounded-xl transition-all whitespace-nowrap font-medium flex-shrink-0">Clear</button>
                             <button onclick="processEntry()"
-                                class="px-6 py-3 bg-[var(--op-red)] hover:bg-[#b00000] text-white rounded-xl shadow-lg transition-all flex items-center gap-2 whitespace-nowrap font-black border-2 border-[#5d3615]">
-                                <span>✨</span> Save Dash Slash
+                                class="px-4 sm:px-6 py-3 bg-[var(--op-red)] hover:bg-[#b00000] text-white rounded-xl shadow-lg transition-all flex items-center gap-2 whitespace-nowrap font-black border-2 border-[#5d3615] flex-shrink-0">
+                                <span>✨</span> Gum Gum no
                             </button>
                         </div>
                     </header>
@@ -1313,12 +1313,115 @@
             <header class="glass-panel p-6 rounded-3xl mb-6 relative overflow-hidden"
                     style="border: 4px solid var(--bronze-dark); box-shadow: 0 0 0 2px var(--copper), 8px 8px 0 rgba(139, 105, 20, 0.3);">
                 <div class="absolute top-2 right-2 text-4xl opacity-10 pointer-events-none">📢</div>
-                <h2 class="text-4xl font-black mb-2 compass-accent op-font" style="color: var(--ship-wood);">Brook's Musical Phrases</h2>
-                <p class="text-lg font-bold" style="color: var(--text-secondary);">Master the patterns of speech. Yo-ho-ho!</p>
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-4xl font-black mb-2 compass-accent op-font" style="color: var(--ship-wood);">Brook's Songs</h2>
+                        <p class="text-lg font-bold" style="color: var(--text-secondary);">Master the patterns of speech. Yo-ho-ho!</p>
+                    </div>
+                    <button id="toggle-add-phrase-btn" onclick="toggleAddPhraseSection()"
+                        class="w-12 h-12 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-200 transition-all transform hover:scale-110 active:scale-95 group"
+                        title="Add New Phrase">
+                        <span class="text-2xl font-bold transition-transform group-hover:rotate-90">+</span>
+                    </button>
+                </div>
             </header>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="phrases-container">
-                <!-- Content injected via JS -->
+            <div class="flex flex-col lg:flex-row gap-6">
+                <!-- Main Column: Phrases -->
+                <div class="flex-1 space-y-6">
+                    <!-- Add Phrase Section -->
+                    <div id="add-phrase-section" class="hidden glass-card p-3 sm:p-6 rounded-[24px] !bg-white/60 animate-fade-in">
+                        <h3 class="font-bold text-lg text-slate-800 mb-4">Add New Phrase</h3>
+                        <div class="flex flex-col gap-3">
+                            <input type="text" id="new-phrase-english" placeholder="English phrase..."
+                                class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all placeholder-slate-300"
+                                onkeypress="if(event.key === 'Enter') addPhrase()">
+                            <input type="text" id="new-phrase-german" placeholder="German translation (optional)..."
+                                class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all placeholder-slate-300"
+                                onkeypress="if(event.key === 'Enter') addPhrase()">
+                            <div class="flex gap-3">
+                                <select id="new-phrase-category"
+                                    class="flex-1 px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 cursor-pointer">
+                                    <option value="">No Category</option>
+                                    <!-- Categories populated by JS -->
+                                </select>
+                                <button onclick="addPhrase()"
+                                    class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-200 hover:shadow-xl whitespace-nowrap">
+                                    + Add Phrase
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-2">💡 Tip: Leave German translation blank to auto-translate from English to German</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="phrases-container">
+                        <!-- Content injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Right Column: Categories -->
+                <div class="w-full lg:w-80 flex flex-col gap-6">
+                    <div class="glass-card p-3 sm:p-6 rounded-[30px] !bg-white/60 h-full flex flex-col">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-lg text-slate-800">Categories</h3>
+                            <button onclick="showAddPhraseCategoryModal()"
+                                class="w-8 h-8 flex items-center justify-center bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                                title="Add New Category">
+                                <span class="text-xl">+</span>
+                            </button>
+                        </div>
+
+                        <div id="phrase-category-list" class="flex-1 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+                            <button onclick="selectPhraseCategory('all')" id="phrase-cat-all"
+                                class="w-full text-left px-4 py-3 rounded-xl bg-blue-600 text-white font-bold transition-all shadow-md">
+                                📁 All Phrases
+                            </button>
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Phrase Category Modal -->
+            <div id="add-phrase-category-modal"
+                class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+                <div class="glass-card w-full max-w-sm p-8 bg-white/90" onclick="event.stopPropagation()">
+                    <h3 class="text-2xl font-bold text-slate-800 mb-6">New Phrase Category</h3>
+                    <input type="text" id="new-phrase-category-name" placeholder="Category name (e.g., Greetings)..."
+                        class="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 mb-6"
+                        onkeypress="if(event.key === 'Enter') addPhraseCategory()">
+                    <div class="flex gap-3">
+                        <button onclick="addPhraseCategory()"
+                            class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-100">Create</button>
+                        <button onclick="hideAddPhraseCategoryModal()"
+                            class="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Phrase Modal -->
+            <div id="edit-phrase-modal"
+                class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+                <div class="glass-card w-full max-w-md p-8 bg-white/90" onclick="event.stopPropagation()">
+                    <h3 class="text-2xl font-bold text-slate-800 mb-6">Edit Phrase</h3>
+                    <div class="flex flex-col gap-3 mb-6">
+                        <input type="text" id="edit-phrase-english" placeholder="English phrase..."
+                            class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400">
+                        <input type="text" id="edit-phrase-german" placeholder="German translation..."
+                            class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400">
+                        <select id="edit-phrase-category"
+                            class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 cursor-pointer">
+                            <option value="">No Category</option>
+                            <!-- Categories populated by JS -->
+                        </select>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="updatePhrase()"
+                            class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-100">Update</button>
+                        <button onclick="hideEditPhraseModal()"
+                            class="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancel</button>
+                    </div>
+                </div>
             </div>
         </section>
 
