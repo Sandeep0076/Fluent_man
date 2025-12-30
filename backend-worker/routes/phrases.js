@@ -1,96 +1,14 @@
 import { Hono } from 'hono'
 import { getSupabaseClient } from '../supabase.js'
 import { translateToGerman, translateToEnglish } from '../services/translation.js'
+import { generateExampleSentences } from '../services/gemini-translation.js'
 
 const router = new Hono()
 
-// Built-in common phrases with meanings and examples
-const BUILT_IN_PHRASES = [
-  {
-    category: "Phrases",
-    phrase: "Meiner Meinung nach...",
-    meaning: "In my opinion...",
-    example_german: "Meiner Meinung nach ist das eine sehr gute Idee.",
-    example_english: "In my opinion, that is a very good idea.",
-    builtin: true
-  },
-  {
-    category: "Phrases",
-    phrase: "Das kommt darauf an.",
-    meaning: "That depends.",
-    example_german: "Gehen wir heute spazieren? Das kommt auf das Wetter an.",
-    example_english: "Are we going for a walk today? That depends on the weather.",
-    builtin: true
-  },
-  {
-    category: "Phrases",
-    phrase: "Ich hätte gern...",
-    meaning: "I would like to have...",
-    example_german: "Ich hätte gern ein Glas Wasser, bitte.",
-    example_english: "I would like to have a glass of water, please.",
-    builtin: true
-  },
-  {
-    category: "Phrases",
-    phrase: "Ehrlich gesagt...",
-    meaning: "To be honest...",
-    example_german: "Ehrlich gesagt habe ich heute keine Lust auf Kino.",
-    example_english: "To be honest, I don't feel like going to the cinema today.",
-    builtin: true
-  },
-  {
-    category: "Phrases",
-    phrase: "Keine Ahnung!",
-    meaning: "No idea!",
-    example_german: "Weißt du, wo mein Handy ist? Keine Ahnung!",
-    example_english: "Do you know where my phone is? No idea!",
-    builtin: true
-  },
-  {
-    category: "Phrases",
-    phrase: "Das macht nichts.",
-    meaning: "It doesn't matter / No problem.",
-    example_german: "Entschuldigung für die Verspätung! Das macht nichts.",
-    example_english: "Sorry for the delay! It doesn't matter.",
-    builtin: true
-  },
-  {
-    category: "Phrases",
-    phrase: "Wie bitte?",
-    meaning: "Pardon? / What did you say?",
-    example_german: "Wie bitte? Könnten Sie das noch einmal wiederholen?",
-    example_english: "Pardon? Could you repeat that once more?",
-    builtin: true
-  },
-  {
-    category: "Phrases",
-    phrase: "Schönen Feierabend!",
-    meaning: "Have a nice evening (after work)!",
-    example_german: "Ich gehe jetzt nach Hause. Schönen Feierabend!",
-    example_english: "I'm going home now. Have a nice evening!",
-    builtin: true
-  },
-  {
-    category: "Phrases",
-    phrase: "Vielen Dank im Voraus.",
-    meaning: "Many thanks in advance.",
-    example_german: "Könnten Sie mir die Informationen schicken? Vielen Dank im Voraus.",
-    example_english: "Could you send me the information? Many thanks in advance.",
-    builtin: true
-  },
-  {
-    category: "Phrases",
-    phrase: "Es tut mir leid, dass...",
-    meaning: "I am sorry that...",
-    example_german: "Es tut mir leid, dass ich dich so lange warten ließ.",
-    example_english: "I am sorry that I kept you waiting for so long.",
-    builtin: true
-  }
-];
-
 /**
  * GET /api/phrases
- * Get all phrases (built-in + custom) with optional category filtering
+ * Get all phrases from database with optional category filtering
+ * Note: All phrases (including formerly "built-in" ones) are now stored in the database
  */
 router.get('/', async (c) => {
   try {
@@ -108,24 +26,24 @@ router.get('/', async (c) => {
 
     query = query.order('created_at', { ascending: false });
 
-    const { data: customPhrases, error } = await query;
+    const { data: phrases, error } = await query;
 
     if (error) throw error;
 
-    const customWithFlag = (customPhrases || []).map(p => ({
+    // Map phrases to include the 'phrase' field for frontend compatibility
+    const phrasesWithFormat = (phrases || []).map(p => ({
       ...p,
       phrase: p.german,
-      builtin: false
+      builtin: false  // All phrases are now deletable/editable
     }));
-    const allPhrases = [...BUILT_IN_PHRASES, ...customWithFlag];
 
     return c.json({
       success: true,
-      data: allPhrases,
+      data: phrasesWithFormat,
       count: {
-        total: allPhrases.length,
-        builtin: BUILT_IN_PHRASES.length,
-        custom: customWithFlag.length
+        total: phrasesWithFormat.length,
+        builtin: 0,  // No more hardcoded built-in phrases
+        custom: phrasesWithFormat.length
       }
     });
   } catch (error) {
@@ -266,7 +184,7 @@ router.post('/', async (c) => {
     // Auto-translate to German if not provided
     let cleanGerman = german ? german.trim() : '';
     let meaning = cleanEnglish;
-    let exampleEnglish = `For example: ${cleanEnglish}`;
+    let exampleEnglish = '';
     let exampleGerman = '';
 
     if (!cleanGerman) {
@@ -281,12 +199,16 @@ router.post('/', async (c) => {
       }
     }
 
-    // Generate example sentences
+    // Generate contextual example sentences using Gemini
     try {
-      exampleGerman = await translateToGerman(exampleEnglish, c.env);
+      const examples = await generateExampleSentences(cleanEnglish, cleanGerman, c.env);
+      exampleEnglish = examples.exampleEnglish;
+      exampleGerman = examples.exampleGerman;
     } catch (error) {
-      console.warn('Failed to generate German example:', error);
-      exampleGerman = cleanGerman;
+      console.warn('Failed to generate examples:', error);
+      // Fallback to simple examples
+      exampleEnglish = `${cleanEnglish}, I didn't expect to see you here!`;
+      exampleGerman = `${cleanGerman}, ich habe nicht erwartet, dich hier zu sehen!`;
     }
 
     // Check for duplicates

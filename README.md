@@ -77,7 +77,7 @@ The 30-Day Journey Map transforms your German learning into an epic adventure! T
    ```
 
 3. **View your Journey Map:**
-   - Open http://localhost:3000
+   - Open http://localhost:8080
    - Navigate to the Dashboard
    - Your journey map will display with day 1 as your current position
 
@@ -159,11 +159,11 @@ The 30-Day Journey Map transforms your German learning into an epic adventure! T
    npm run dev
    ```
    This runs both:
-   - Frontend at http://localhost:3000
+   - Frontend at http://localhost:8080
    - Backend API at http://localhost:8789
 
 6. **Open your browser:**
-   Navigate to `http://localhost:3000`
+   Navigate to `http://localhost:8080`
 
 ## Deployment to Cloudflare
 
@@ -286,12 +286,12 @@ For detailed troubleshooting and advanced deployment options, see [`QUICKSTART.m
 
 **Export Your Data:**
 ```bash
-GET http://localhost:3000/api/data/export
+GET http://localhost:8080/api/data/export
 ```
 
 **Import Data:**
 ```bash
-POST http://localhost:3000/api/data/import
+POST http://localhost:8080/api/data/import
 Content-Type: application/json
 
 {
@@ -302,7 +302,7 @@ Content-Type: application/json
 
 **Clear All Data:**
 ```bash
-DELETE http://localhost:3000/api/data/clear
+DELETE http://localhost:8080/api/data/clear
 ```
 
 ## API Endpoints
@@ -444,7 +444,7 @@ The app uses Google Gemini AI (free tier):
 ## Troubleshooting
 
 **Server won't start:**
-- Check if port 3000 is already in use
+- Check if port 8080 is already in use
 - Ensure Node.js v18+ is installed: `node --version`
 - Verify `.env` file exists with correct credentials
 - Delete `node_modules` and run `npm install` again

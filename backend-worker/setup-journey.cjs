@@ -163,7 +163,7 @@ async function setupJourneyMap() {
 
         console.log('📋 Next Steps:');
         console.log('1. Start the application: npm run dev');
-        console.log('2. Open http://localhost:3000 in your browser');
+        console.log('2. Open http://localhost:6000 in your browser');
         console.log('3. Navigate to the Dashboard to see your Journey Map');
         console.log('4. Complete daily activities to progress on your journey');
         console.log('5. Unlock achievements at milestone days (7, 14, 21, 30)\n');

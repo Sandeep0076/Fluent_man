@@ -55,7 +55,7 @@ Get ready to set sail on your journey to German fluency with this **Cloudflare-p
     ```bash
     npm run dev
     ```
-    - **Frontend**: http://localhost:3000
+    - **Frontend**: http://localhost:8080
     - **Backend API**: http://localhost:8787
 
 ---
@@ -238,7 +238,7 @@ DeutschTagebuch/
 ## 🛡️ Key Commands
 
 - `npm run dev`: Runs both frontend and backend locally.
-- `npm run dev:frontend`: Runs only the frontend (at port 3000).
+- `npm run dev:frontend`: Runs only the frontend (at port 8080).
 - `npm run dev:backend`: Runs only the backend worker (at port 8787).
 
 ---

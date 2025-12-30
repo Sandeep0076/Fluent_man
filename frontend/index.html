@@ -1406,25 +1406,45 @@
 
             <!-- Edit Phrase Modal -->
             <div id="edit-phrase-modal"
-                class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
-                <div class="glass-card w-full max-w-md p-8 bg-white/90" onclick="event.stopPropagation()">
+                class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 overflow-y-auto">
+                <div class="glass-card w-full max-w-2xl p-8 bg-white/90 my-8" onclick="event.stopPropagation()">
                     <h3 class="text-2xl font-bold text-slate-800 mb-6">Edit Phrase</h3>
-                    <div class="flex flex-col gap-3 mb-6">
-                        <input type="text" id="edit-phrase-english" placeholder="English phrase..."
-                            class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400">
-                        <input type="text" id="edit-phrase-german" placeholder="German translation..."
-                            class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400">
-                        <select id="edit-phrase-category"
-                            class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 cursor-pointer">
-                            <option value="">No Category</option>
-                            <!-- Categories populated by JS -->
-                        </select>
+                    <div class="flex flex-col gap-4 mb-6">
+                        <!-- Phrase Section -->
+                        <div class="space-y-3">
+                            <label class="text-sm font-bold text-slate-700">Phrase</label>
+                            <input type="text" id="edit-phrase-english" placeholder="English phrase..."
+                                class="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
+                            <input type="text" id="edit-phrase-german" placeholder="German translation..."
+                                class="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
+                        </div>
+
+                        <!-- Examples Section -->
+                        <div class="space-y-3">
+                            <label class="text-sm font-bold text-slate-700">Example Sentences</label>
+                            <textarea id="edit-phrase-example-english" placeholder="English example sentence..."
+                                rows="2"
+                                class="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 resize-none"></textarea>
+                            <textarea id="edit-phrase-example-german" placeholder="German example sentence..."
+                                rows="2"
+                                class="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 resize-none"></textarea>
+                        </div>
+
+                        <!-- Category Section -->
+                        <div class="space-y-3">
+                            <label class="text-sm font-bold text-slate-700">Category</label>
+                            <select id="edit-phrase-category"
+                                class="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 cursor-pointer">
+                                <option value="">No Category</option>
+                                <!-- Categories populated by JS -->
+                            </select>
+                        </div>
                     </div>
                     <div class="flex gap-3">
                         <button onclick="updatePhrase()"
-                            class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-100">Update</button>
+                            class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-100 transition-all">Update Phrase</button>
                         <button onclick="hideEditPhraseModal()"
-                            class="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancel</button>
+                            class="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">Cancel</button>
                     </div>
                 </div>
             </div>

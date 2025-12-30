@@ -1326,14 +1326,17 @@ function renderPhrases(phrases) {
         const div = document.createElement('div');
         div.className = 'glass-card rounded-2xl overflow-hidden cursor-pointer group hover:scale-[1.01] transition-all border-2 border-[var(--op-wood)] shadow-[4px_4px_0px_#5d3615] bg-[#fffcf0] relative';
 
-        const customBadge = !phrase.builtin ? '<span class="text-[10px] bg-[var(--op-blue)] text-white px-2 py-0.5 rounded-full font-black uppercase">Pirated Copy</span>' : '';
-        
-        // Only show edit button for custom phrases
-        const editButton = !phrase.builtin ? `
-            <button onclick="showEditPhraseModal(event, ${phrase.id})"
-                class="absolute top-2 right-2 text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity text-xl font-black z-10"
-                title="Edit Phrase">✏️</button>
-        ` : '';
+        // All phrases are now from the database and can be edited/deleted
+        const actionButtons = `
+            <div class="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10">
+                <button onclick="showEditPhraseModal(event, ${phrase.id})"
+                    class="w-8 h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all shadow-md hover:scale-110"
+                    title="Edit Phrase">✏️</button>
+                <button onclick="deletePhrase(event, ${phrase.id}, ${phrase.builtin})"
+                    class="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all shadow-md hover:scale-110"
+                    title="Delete Phrase">💀</button>
+            </div>
+        `;
 
         // Use phrase field (German) or fallback to german field
         const germanPhrase = phrase.phrase || phrase.german;
@@ -1342,14 +1345,11 @@ function renderPhrases(phrases) {
         const exampleEnglish = phrase.example_english || `For example: ${phrase.english}`;
 
         div.innerHTML = `
-            ${editButton}
+            ${actionButtons}
             <div class="p-6" onclick="toggleTranslation(${index})">
                 <div class="flex justify-between items-start mb-3">
                     <span class="text-[10px] font-black text-[var(--op-blue)] uppercase tracking-widest op-font">German Phrase</span>
-                    <div class="flex gap-2 items-center">
-                        ${customBadge}
-                        <span class="text-[10px] text-slate-400 group-hover:text-[var(--op-red)] transition-colors font-black uppercase">View Details</span>
-                    </div>
+                    <span class="text-[10px] text-slate-400 group-hover:text-[var(--op-red)] transition-colors font-black uppercase">View Details</span>
                 </div>
                 <p class="text-2xl text-slate-800 font-bold leading-relaxed op-font mb-3">${germanPhrase}</p>
                 <div class="text-sm text-slate-600 italic">${meaning}</div>
@@ -1571,6 +1571,39 @@ async function deletePhraseCategory(event, id) {
     }
 }
 
+/**
+ * Delete a phrase (custom or built-in)
+ */
+async function deletePhrase(event, phraseId, isBuiltin = false) {
+    event.stopPropagation();
+    
+    const confirmMessage = isBuiltin
+        ? 'Are you sure you want to delete this built-in phrase? You can always add it back later as a custom phrase.'
+        : 'Are you sure you want to delete this phrase? This action cannot be undone.';
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+
+    try {
+        await apiCall(`/phrases/${phraseId}`, { method: 'DELETE' });
+
+        // Show success feedback
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+        successMsg.innerHTML = '✓ Phrase deleted successfully!';
+        document.body.appendChild(successMsg);
+
+        setTimeout(() => successMsg.remove(), 3000);
+
+        // Reload phrases
+        await loadPhrases();
+    } catch (error) {
+        console.error('Error deleting phrase:', error);
+        alert('Failed to delete phrase: ' + error.message);
+    }
+}
+
 // --- EDIT PHRASE ---
 async function showEditPhraseModal(event, phraseId) {
     event.stopPropagation();
@@ -1580,9 +1613,11 @@ async function showEditPhraseModal(event, phraseId) {
         const result = await apiCall(`/phrases/${phraseId}`);
         const phrase = result.data;
 
-        // Populate the modal
+        // Populate the modal with all fields
         document.getElementById('edit-phrase-english').value = phrase.english || '';
         document.getElementById('edit-phrase-german').value = phrase.german || '';
+        document.getElementById('edit-phrase-example-english').value = phrase.example_english || '';
+        document.getElementById('edit-phrase-example-german').value = phrase.example_german || '';
         document.getElementById('edit-phrase-category').value = phrase.category_id || '';
 
         editingPhraseId = phraseId;
@@ -1602,9 +1637,11 @@ function hideEditPhraseModal() {
     modal.classList.add('hidden');
     modal.classList.remove('flex');
     
-    // Clear form
+    // Clear all form fields
     document.getElementById('edit-phrase-english').value = '';
     document.getElementById('edit-phrase-german').value = '';
+    document.getElementById('edit-phrase-example-english').value = '';
+    document.getElementById('edit-phrase-example-german').value = '';
     document.getElementById('edit-phrase-category').value = '';
     editingPhraseId = null;
 }
@@ -1614,6 +1651,8 @@ async function updatePhrase() {
 
     const english = document.getElementById('edit-phrase-english').value.trim();
     const german = document.getElementById('edit-phrase-german').value.trim();
+    const exampleEnglish = document.getElementById('edit-phrase-example-english').value.trim();
+    const exampleGerman = document.getElementById('edit-phrase-example-german').value.trim();
     const category_id = document.getElementById('edit-phrase-category').value;
 
     if (!english) {
@@ -1639,8 +1678,8 @@ async function updatePhrase() {
             english,
             german,
             meaning: english,
-            example_english: `For example: ${english}`,
-            example_german: german
+            example_english: exampleEnglish || `For example: ${english}`,
+            example_german: exampleGerman || german
         };
         if (category_id) {
             payload.category_id = category_id;
