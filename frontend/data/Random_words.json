@@ -1,0 +1,702 @@
+[
+  {
+    "category": "Connectors",
+    "word": "Obwohl",
+    "meaning": "although",
+    "example_german": "Ich gehe spazieren, obwohl es regnet.",
+    "example_english": "I am going for a walk, although it is raining."
+  },
+  {
+    "category": "Connectors",
+    "word": "Trotzdem",
+    "meaning": "nevertheless / anyway",
+    "example_german": "Es ist teuer, aber ich kaufe es trotzdem.",
+    "example_english": "It is expensive, but I am buying it anyway."
+  },
+  {
+    "category": "Connectors",
+    "word": "Deshalb",
+    "meaning": "therefore / that's why",
+    "example_german": "Ich bin krank, deshalb bleibe ich zu Hause.",
+    "example_english": "I am sick, therefore I am staying at home."
+  },
+  {
+    "category": "Connectors",
+    "word": "Entweder... oder",
+    "meaning": "either... or",
+    "example_german": "Wir gehen entweder ins Kino oder ins Theater.",
+    "example_english": "We are going either to the cinema or to the theater."
+  },
+  {
+    "category": "Connectors",
+    "word": "Weder... noch",
+    "meaning": "neither... nor",
+    "example_german": "Ich habe weder Zeit noch Geld.",
+    "example_english": "I have neither time nor money."
+  },
+  {
+    "category": "Connectors",
+    "word": "Sowohl... als auch",
+    "meaning": "both... as well as",
+    "example_german": "Sie spricht sowohl Deutsch als auch Englisch.",
+    "example_english": "She speaks both German as well as English."
+  },
+  {
+    "category": "Connectors",
+    "word": "Damit",
+    "meaning": "so that",
+    "example_german": "Ich lerne viel, damit ich die Prüfung bestehe.",
+    "example_english": "I study a lot so that I pass the exam."
+  },
+  {
+    "category": "Connectors",
+    "word": "Falls",
+    "meaning": "in case / if",
+    "example_german": "Falls es regnet, bleiben wir drinnen.",
+    "example_english": "In case it rains, we will stay inside."
+  },
+  {
+    "category": "Connectors",
+    "word": "Stattdessen",
+    "meaning": "instead of that",
+    "example_german": "Er wollte Fleisch, aber er isst stattdessen Salat.",
+    "example_english": "He wanted meat, but he is eating salad instead."
+  },
+  {
+    "category": "Connectors",
+    "word": "Außerdem",
+    "meaning": "furthermore / besides",
+    "example_german": "Das Haus ist schön, außerdem ist es billig.",
+    "example_english": "The house is beautiful; furthermore, it is cheap."
+  },
+  {
+    "category": "Verbs",
+    "word": "Sich beschweren",
+    "meaning": "to complain",
+    "example_german": "Der Gast beschwert sich über das kalte Essen.",
+    "example_english": "The guest is complaining about the cold food."
+  },
+  {
+    "category": "Verbs",
+    "word": "Vorschlagen",
+    "meaning": "to suggest",
+    "example_german": "Ich schlage vor, dass wir eine Pause machen.",
+    "example_english": "I suggest that we take a break."
+  },
+  {
+    "category": "Verbs",
+    "word": "Teilnehmen",
+    "meaning": "to participate / take part",
+    "example_german": "Möchtest du an dem Kurs teilnehmen?",
+    "example_english": "Would you like to participate in the course?"
+  },
+  {
+    "category": "Verbs",
+    "word": "Sich unterhalten",
+    "meaning": "to converse / chat",
+    "example_german": "Wir unterhalten uns über unsere Urlaubspläne.",
+    "example_english": "We are chatting about our holiday plans."
+  },
+  {
+    "category": "Verbs",
+    "word": "Erledigen",
+    "meaning": "to take care of / finish a task",
+    "example_german": "Ich muss heute noch viele Aufgaben erledigen.",
+    "example_english": "I still have to finish many tasks today."
+  },
+  {
+    "category": "Verbs",
+    "word": "Verschieben",
+    "meaning": "to postpone",
+    "example_german": "Können wir den Termin auf morgen verschieben?",
+    "example_english": "Can we postpone the appointment to tomorrow?"
+  },
+  {
+    "category": "Verbs",
+    "word": "Überzeugen",
+    "meaning": "to convince",
+    "example_german": "Dein Argument hat mich überzeugt.",
+    "example_english": "Your argument convinced me."
+  },
+  {
+    "category": "Verbs",
+    "word": "Sich bewerben",
+    "meaning": "to apply for",
+    "example_german": "Ich bewerbe mich um eine neue Stelle.",
+    "example_english": "I am applying for a new position."
+  },
+  {
+    "category": "Verbs",
+    "word": "Vermeiden",
+    "meaning": "to avoid",
+    "example_german": "Wir sollten unnötigen Stress vermeiden.",
+    "example_english": "We should avoid unnecessary stress."
+  },
+  {
+    "category": "Verbs",
+    "word": "Beeinflussen",
+    "meaning": "to influence",
+    "example_german": "Das Wetter beeinflusst meine Laune.",
+    "example_english": "The weather influences my mood."
+  },
+  {
+    "category": "Verbs",
+    "word": "Zustimmen",
+    "meaning": "to agree",
+    "example_german": "Ich stimme deiner Meinung vollkommen zu.",
+    "example_english": "I completely agree with your opinion."
+  },
+  {
+    "category": "Verbs",
+    "word": "Ablehnen",
+    "meaning": "to decline / reject",
+    "example_german": "Leider muss ich deine Einladung ablehnen.",
+    "example_english": "Unfortunately, I have to decline your invitation."
+  },
+  {
+    "category": "Verbs",
+    "word": "Sich lohnen",
+    "meaning": "to be worth it",
+    "example_german": "Es lohnt sich, diese Stadt zu besuchen.",
+    "example_english": "It is worth it to visit this city."
+  },
+  {
+    "category": "Verbs",
+    "word": "Nachdenken",
+    "meaning": "to reflect / think about",
+    "example_german": "Ich muss über deinen Vorschlag nachdenken.",
+    "example_english": "I need to think about your suggestion."
+  },
+  {
+    "category": "Verbs",
+    "word": "Zusammenfassen",
+    "meaning": "to summarize",
+    "example_german": "Kannst du die Geschichte kurz zusammenfassen?",
+    "example_english": "Can you summarize the story briefly?"
+  },
+  {
+    "category": "Verbs",
+    "word": "Erwarten",
+    "meaning": "to expect",
+    "example_german": "Was erwartest du von diesem Job?",
+    "example_english": "What do you expect from this job?"
+  },
+  {
+    "category": "Verbs",
+    "word": "Unterbrechen",
+    "meaning": "to interrupt",
+    "example_german": "Bitte unterbrich mich nicht, wenn ich rede.",
+    "example_english": "Please don't interrupt me when I am speaking."
+  },
+  {
+    "category": "Verbs",
+    "word": "Sich verabreden",
+    "meaning": "to make an appointment/date",
+    "example_german": "Ich habe mich mit einer Freundin verabredet.",
+    "example_english": "I have made plans to meet with a friend."
+  },
+  {
+    "category": "Verbs",
+    "word": "Erreichen",
+    "meaning": "to reach / achieve",
+    "example_german": "Wir haben unser Ziel endlich erreicht.",
+    "example_english": "We have finally reached our goal."
+  },
+  {
+    "category": "Verbs",
+    "word": "Sich gewöhnen an",
+    "meaning": "to get used to",
+    "example_german": "Ich muss mich an das kalte Wetter gewöhnen.",
+    "example_english": "I have to get used to the cold weather."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Herausforderung",
+    "meaning": "the challenge",
+    "example_german": "Die neue Sprache ist eine große Herausforderung.",
+    "example_english": "The new language is a big challenge."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Voraussetzung",
+    "meaning": "the requirement / condition",
+    "example_german": "Deutschkenntnisse sind eine Voraussetzung für den Job.",
+    "example_english": "German skills are a requirement for the job."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Erfahrung",
+    "meaning": "the experience",
+    "example_german": "Ich habe viel Erfahrung im Marketing.",
+    "example_english": "I have a lot of experience in marketing."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Entscheidung",
+    "meaning": "the decision",
+    "example_german": "Das war eine sehr schwierige Entscheidung.",
+    "example_english": "That was a very difficult decision."
+  },
+  {
+    "category": "Nouns",
+    "word": "Der Unterschied",
+    "meaning": "the difference",
+    "example_german": "Was ist der Unterschied zwischen diesen Wörtern?",
+    "example_english": "What is the difference between these words?"
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Möglichkeit",
+    "meaning": "the possibility / opportunity",
+    "example_german": "Es gibt viele Möglichkeiten, Deutsch zu lernen.",
+    "example_english": "There are many possibilities to learn German."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Umwelt",
+    "meaning": "the environment",
+    "example_german": "Wir müssen mehr für die Umwelt tun.",
+    "example_english": "We must do more for the environment."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Gesellschaft",
+    "meaning": "the society",
+    "example_german": "Jeder Mensch ist ein Teil der Gesellschaft.",
+    "example_english": "Every person is a part of society."
+  },
+  {
+    "category": "Nouns",
+    "word": "Der Vorteil",
+    "meaning": "the advantage",
+    "example_german": "Ein großer Vorteil von Berlin ist der Verkehr.",
+    "example_english": "A big advantage of Berlin is the transport."
+  },
+  {
+    "category": "Nouns",
+    "word": "Der Nachteil",
+    "meaning": "the disadvantage",
+    "example_german": "Ein Nachteil ist, dass die Miete sehr hoch ist.",
+    "example_english": "A disadvantage is that the rent is very high."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Ausbildung",
+    "meaning": "the vocational training",
+    "example_german": "Nach der Schule beginnt er eine Ausbildung.",
+    "example_english": "After school, he begins vocational training."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Werbung",
+    "meaning": "the advertisement",
+    "example_german": "Die Werbung im Fernsehen ist oft nervig.",
+    "example_english": "The advertisement on TV is often annoying."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Erlaubnis",
+    "meaning": "the permission",
+    "example_german": "Haben Sie eine Erlaubnis für diesen Parkplatz?",
+    "example_english": "Do you have permission for this parking space?"
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Unterstützung",
+    "meaning": "the support",
+    "example_german": "Vielen Dank für deine großartige Unterstützung.",
+    "example_english": "Thank you very much for your great support."
+  },
+  {
+    "category": "Nouns",
+    "word": "Der Erfolg",
+    "meaning": "the success",
+    "example_german": "Ich wünsche dir viel Erfolg bei der Prüfung.",
+    "example_english": "I wish you much success with the exam."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Gehaltserhöhung",
+    "meaning": "the salary increase",
+    "example_german": "Er fragt seinen Chef nach einer Gehaltserhöhung.",
+    "example_english": "He is asking his boss for a salary increase."
+  },
+  {
+    "category": "Nouns",
+    "word": "Der Vertrag",
+    "meaning": "the contract",
+    "example_german": "Ich unterschreibe morgen meinen Arbeitsvertrag.",
+    "example_english": "I am signing my employment contract tomorrow."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Veranstaltung",
+    "meaning": "the event",
+    "example_german": "Die Veranstaltung findet heute Abend statt.",
+    "example_english": "The event is taking place this evening."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Lösung",
+    "meaning": "the solution",
+    "example_german": "Wir haben endlich eine Lösung gefunden.",
+    "example_english": "We have finally found a solution."
+  },
+  {
+    "category": "Nouns",
+    "word": "Das Missverständnis",
+    "meaning": "the misunderstanding",
+    "example_german": "Es gab ein kleines Missverständnis zwischen uns.",
+    "example_english": "There was a small misunderstanding between us."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Beziehung",
+    "meaning": "the relationship",
+    "example_german": "Eine gute Beziehung braucht viel Vertrauen.",
+    "example_english": "A good relationship needs a lot of trust."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Meinung",
+    "meaning": "the opinion",
+    "example_german": "Meiner Meinung nach ist das eine gute Idee.",
+    "example_english": "In my opinion, that is a good idea."
+  },
+  {
+    "category": "Nouns",
+    "word": "Der Bereich",
+    "meaning": "the area / field",
+    "example_german": "Er arbeitet im Bereich Technologie.",
+    "example_english": "He works in the field of technology."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Geduld",
+    "meaning": "the patience",
+    "example_german": "Man braucht viel Geduld beim Sprachenlernen.",
+    "example_english": "One needs a lot of patience when learning languages."
+  },
+  {
+    "category": "Nouns",
+    "word": "Die Zukunft",
+    "meaning": "the future",
+    "example_german": "Niemand weiß, was in der Zukunft passiert.",
+    "example_english": "Nobody knows what happens in the future."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Erfolgreich",
+    "meaning": "successful",
+    "example_german": "Das Unternehmen ist sehr erfolgreich.",
+    "example_english": "The company is very successful."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Enttäuscht",
+    "meaning": "disappointed",
+    "example_german": "Ich bin enttäuscht von dem Ergebnis.",
+    "example_english": "I am disappointed with the result."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Gleichzeitig",
+    "meaning": "simultaneously",
+    "example_german": "Er kann telefonieren und gleichzeitig kochen.",
+    "example_english": "He can talk on the phone and cook at the same time."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Regelmäßig",
+    "meaning": "regularly",
+    "example_german": "Ich treibe regelmäßig Sport.",
+    "example_english": "I do sports regularly."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Wahrscheinlich",
+    "meaning": "probably",
+    "example_german": "Wir kommen wahrscheinlich etwas später.",
+    "example_english": "We will probably come a little later."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Selbstverständlich",
+    "meaning": "of course",
+    "example_german": "Hilfe ist für uns selbstverständlich.",
+    "example_english": "Helping is a matter of course for us."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Nervig",
+    "meaning": "annoying",
+    "example_german": "Der Lärm von der Baustelle ist wirklich nervig.",
+    "example_english": "The noise from the construction site is really annoying."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Zufrieden",
+    "meaning": "satisfied",
+    "example_german": "Bist du mit deinem neuen Auto zufrieden?",
+    "example_english": "Are you satisfied with your new car?"
+  },
+  {
+    "category": "Adjectives",
+    "word": "Ehrlich",
+    "meaning": "honest",
+    "example_german": "Bitte sei ehrlich zu mir.",
+    "example_english": "Please be honest with me."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Höflich",
+    "meaning": "polite",
+    "example_german": "Er ist immer sehr höflich zu seinen Kunden.",
+    "example_english": "He is always very polite to his customers."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Günstig",
+    "meaning": "affordable / favorable",
+    "example_german": "In diesem Supermarkt ist das Obst sehr günstig.",
+    "example_english": "In this supermarket, the fruit is very affordable."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Kostenlos",
+    "meaning": "free of charge",
+    "example_german": "Das WLAN im Hotel ist kostenlos.",
+    "example_english": "The Wi-Fi in the hotel is free of charge."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Mutig",
+    "meaning": "brave",
+    "example_german": "Es war mutig, die Wahrheit zu sagen.",
+    "example_english": "It was brave to tell the truth."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Gefährlich",
+    "meaning": "dangerous",
+    "example_german": "Nachts allein im Wald ist es gefährlich.",
+    "example_english": "At night alone in the forest, it is dangerous."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Erreichbar",
+    "meaning": "reachable",
+    "example_german": "Ich bin am Wochenende telefonisch erreichbar.",
+    "example_english": "I am reachable by phone on the weekend."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Furchtbar",
+    "meaning": "terrible / awful",
+    "example_german": "Das Wetter am Wochenende war furchtbar.",
+    "example_english": "The weather at the weekend was terrible."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Sinnvoll",
+    "meaning": "meaningful",
+    "example_german": "Es ist sinnvoll, einen Plan zu machen.",
+    "example_english": "It is sensible to make a plan."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Einsam",
+    "meaning": "lonely",
+    "example_german": "Manchmal fühlt sie sich in der Großstadt einsam.",
+    "example_english": "Sometimes she feels lonely in the big city."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Stolz",
+    "meaning": "proud",
+    "example_german": "Die Eltern sind stolz auf ihren Sohn.",
+    "example_english": "The parents are proud of their son."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Spannend",
+    "meaning": "exciting",
+    "example_german": "Der Film war von Anfang bis Ende spannend.",
+    "example_english": "The movie was exciting from beginning to end."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Tatsächlich",
+    "meaning": "actually / really",
+    "example_german": "Es hat heute tatsächlich geschneit!",
+    "example_english": "It actually snowed today!"
+  },
+  {
+    "category": "Adjectives",
+    "word": "Besonders",
+    "meaning": "especially",
+    "example_german": "Dieses Restaurant ist besonders am Abend schön.",
+    "example_english": "This restaurant is especially beautiful in the evening."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Zuständig",
+    "meaning": "responsible",
+    "example_german": "Wer ist für dieses Projekt zuständig?",
+    "example_english": "Who is responsible for this project?"
+  },
+  {
+    "category": "Adjectives",
+    "word": "Erschöpft",
+    "meaning": "exhausted",
+    "example_german": "Nach der Arbeit bin ich oft völlig erschöpft.",
+    "example_english": "After work, I am often completely exhausted."
+  },
+  {
+    "category": "Adjectives",
+    "word": "Vorsichtig",
+    "meaning": "careful",
+    "example_german": "Sei vorsichtig, die Straße ist glatt.",
+    "example_english": "Be careful, the road is slippery."
+  },
+  {
+    "category": "Utility",
+    "word": "Eigentlich",
+    "meaning": "actually / in fact",
+    "example_german": "Eigentlich wollte ich heute früher gehen.",
+    "example_english": "Actually, I wanted to leave earlier today."
+  },
+  {
+    "category": "Utility",
+    "word": "Kaum",
+    "meaning": "hardly / barely",
+    "example_german": "Es war so laut, ich konnte ihn kaum hören.",
+    "example_english": "It was so loud, I could hardly hear him."
+  },
+  {
+    "category": "Utility",
+    "word": "Sonst",
+    "meaning": "otherwise",
+    "example_german": "Beeil dich, sonst verpassen wir den Bus.",
+    "example_english": "Hurry up, otherwise we will miss the bus."
+  },
+  {
+    "category": "Utility",
+    "word": "Zwar",
+    "meaning": "indeed / it is true that...",
+    "example_german": "Das Kleid ist zwar schön, aber zu teuer.",
+    "example_english": "The dress is indeed beautiful, but too expensive."
+  },
+  {
+    "category": "Utility",
+    "word": "Inzwischen",
+    "meaning": "meanwhile",
+    "example_german": "Ich habe inzwischen zwei neue Bücher gelesen.",
+    "example_english": "I have meanwhile read two new books."
+  },
+  {
+    "category": "Utility",
+    "word": "Eher",
+    "meaning": "rather",
+    "example_german": "Ich würde eher Tee als Kaffee trinken.",
+    "example_english": "I would rather drink tea than coffee."
+  },
+  {
+    "category": "Utility",
+    "word": "Möglicherweise",
+    "meaning": "possibly",
+    "example_german": "Wir werden möglicherweise umziehen müssen.",
+    "example_english": "We will possibly have to move."
+  },
+  {
+    "category": "Utility",
+    "word": "Ungefähr",
+    "meaning": "approximately",
+    "example_german": "Die Fahrt dauert ungefähr zwei Stunden.",
+    "example_english": "The journey takes approximately two hours."
+  },
+  {
+    "category": "Utility",
+    "word": "Überall",
+    "meaning": "everywhere",
+    "example_german": "Ich habe überall nach meinem Schlüssel gesucht.",
+    "example_english": "I searched everywhere for my key."
+  },
+  {
+    "category": "Utility",
+    "word": "Genauso",
+    "meaning": "exactly the same",
+    "example_german": "Mein Bruder ist genauso groß wie ich.",
+    "example_english": "My brother is exactly as tall as I am."
+  },
+  {
+    "category": "Utility",
+    "word": "Sogar",
+    "meaning": "even",
+    "example_german": "Er spricht sogar Chinesisch.",
+    "example_english": "He even speaks Chinese."
+  },
+  {
+    "category": "Utility",
+    "word": "Häufig",
+    "meaning": "frequently",
+    "example_german": "In dieser Region regnet es sehr häufig.",
+    "example_english": "In this region, it rains very frequently."
+  },
+  {
+    "category": "Utility",
+    "word": "Selten",
+    "meaning": "rarely",
+    "example_german": "Ich sehe meine Verwandten leider nur selten.",
+    "example_english": "Unfortunately, I only rarely see my relatives."
+  },
+  {
+    "category": "Utility",
+    "word": "Überhaupt",
+    "meaning": "at all",
+    "example_german": "Ich habe überhaupt keine Zeit für Hobbys.",
+    "example_english": "I have no time at all for hobbies."
+  },
+  {
+    "category": "Utility",
+    "word": "Jedenfalls",
+    "meaning": "anyway / in any case",
+    "example_german": "Ich komme morgen, jedenfalls versuche ich es.",
+    "example_english": "I'm coming tomorrow; in any case, I'll try."
+  },
+  {
+    "category": "Utility",
+    "word": "Schließlich",
+    "meaning": "finally / eventually",
+    "example_german": "Schließlich haben wir das Problem gelöst.",
+    "example_english": "Finally, we solved the problem."
+  },
+  {
+    "category": "Utility",
+    "word": "Sicherlich",
+    "meaning": "surely / certainly",
+    "example_german": "Du wirst sicherlich eine gute Note bekommen.",
+    "example_english": "You will certainly get a good grade."
+  },
+  {
+    "category": "Utility",
+    "word": "Vielleicht",
+    "meaning": "maybe / perhaps",
+    "example_german": "Vielleicht haben sie den Termin vergessen.",
+    "example_english": "Maybe they forgot the appointment."
+  },
+  {
+    "category": "Utility",
+    "word": "Zuletzt",
+    "meaning": "lastly / recently",
+    "example_german": "Wann hast du ihn zuletzt gesehen?",
+    "example_english": "When did you last see him?"
+  },
+  {
+    "category": "Utility",
+    "word": "Bestimmt",
+    "meaning": "definitely / certain",
+    "example_german": "Das wird bestimmt ein toller Urlaub.",
+    "example_english": "That will definitely be a great holiday."
+  }
+]

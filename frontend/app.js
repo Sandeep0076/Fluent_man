@@ -15,7 +15,9 @@ const state = {
     germanBullets: [],
     selectedCategoryId: 'all',
     categories: [],
-    journeyMap: null
+    journeyMap: null,
+    randomWords: [],
+    wordOfTheDay: null
 };
 
 // --- API HELPER FUNCTIONS ---
@@ -139,6 +141,137 @@ function updateTimerDisplay() {
     }
 }
 
+// --- WORD OF THE DAY FUNCTIONALITY ---
+
+/**
+ * Load random words from JSON file
+ */
+async function loadRandomWords() {
+    try {
+        const response = await fetch('data/Random_words.json');
+        if (!response.ok) {
+            throw new Error('Failed to load random words');
+        }
+        state.randomWords = await response.json();
+        console.log(`✅ Loaded ${state.randomWords.length} random words`);
+        return state.randomWords;
+    } catch (error) {
+        console.error('Error loading random words:', error);
+        return [];
+    }
+}
+
+/**
+ * Get word of the day using deterministic seed based on current date
+ */
+function getWordOfTheDay() {
+    if (!state.randomWords || state.randomWords.length === 0) {
+        return null;
+    }
+
+    // Get current date as seed (YYYY-MM-DD format)
+    const today = new Date();
+    const dateString = today.toISOString().split('T')[0];
+    
+    // Create a simple hash from the date string
+    let hash = 0;
+    for (let i = 0; i < dateString.length; i++) {
+        hash = ((hash << 5) - hash) + dateString.charCodeAt(i);
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    // Use hash to select a word
+    const index = Math.abs(hash) % state.randomWords.length;
+    const wordData = state.randomWords[index];
+    
+    console.log(`📅 Word of the day (${dateString}): ${wordData.word}`);
+    return wordData;
+}
+
+/**
+ * Display word of the day in Robin's Secret Message
+ */
+function displayWordOfTheDay() {
+    const wordData = state.wordOfTheDay;
+    
+    if (!wordData) {
+        console.warn('No word of the day available');
+        return;
+    }
+
+    // Update the HTML elements
+    const wordElement = document.querySelector('#dashboard .text-3xl.lg\\:text-4xl.font-black.mb-2.op-font');
+    const meaningElement = document.querySelector('#dashboard .text-base.lg\\:text-lg.mb-6.font-bold.italic');
+    const exampleGermanElement = document.querySelector('#dashboard .font-black.text-base.lg\\:text-lg.op-font');
+    const exampleEnglishElement = document.querySelector('#dashboard .text-sm.mt-2.font-black');
+    
+    if (wordElement) {
+        wordElement.textContent = wordData.word;
+    }
+    
+    if (meaningElement) {
+        // Remove existing category badge before updating
+        const existingBadge = meaningElement.querySelector('.text-xs.bg-blue-100');
+        if (existingBadge) {
+            existingBadge.remove();
+        }
+        meaningElement.textContent = wordData.meaning;
+    }
+    
+    if (exampleGermanElement) {
+        exampleGermanElement.textContent = `"${wordData.example_german}"`;
+    }
+    
+    if (exampleEnglishElement) {
+        exampleEnglishElement.textContent = wordData.example_english;
+    }
+    
+    // Add category badge if available
+    if (wordData.category) {
+        const categoryBadge = document.createElement('span');
+        categoryBadge.className = 'text-xs bg-blue-100 text-blue-600 px-3 py-1 rounded-full font-bold ml-2';
+        categoryBadge.textContent = wordData.category;
+        
+        if (meaningElement && !meaningElement.querySelector('.text-xs.bg-blue-100')) {
+            meaningElement.appendChild(categoryBadge);
+        }
+    }
+}
+
+/**
+ * Shuffle to a random word (triggered by dice button)
+ */
+function shuffleRandomWord() {
+    if (!state.randomWords || state.randomWords.length === 0) {
+        console.warn('No random words available');
+        return;
+    }
+    
+    // Get a truly random word (not date-based)
+    const randomIndex = Math.floor(Math.random() * state.randomWords.length);
+    const newWord = state.randomWords[randomIndex];
+    
+    // Update state
+    state.wordOfTheDay = newWord;
+    
+    // Display the new word with a subtle animation
+    const wordCard = document.querySelector('#dashboard .glass-card.p-6.flex.flex-col');
+    if (wordCard) {
+        wordCard.style.transform = 'scale(0.98)';
+        wordCard.style.opacity = '0.7';
+        
+        setTimeout(() => {
+            displayWordOfTheDay();
+            wordCard.style.transform = 'scale(1)';
+            wordCard.style.opacity = '1';
+        }, 150);
+    } else {
+        displayWordOfTheDay();
+    }
+    
+    console.log(`🎲 Shuffled to random word: ${newWord.word}`);
+}
+
 // --- DASHBOARD ---
 
 // Helper function to update user level
@@ -188,6 +321,9 @@ async function loadDashboard() {
         if (bestStreakEl) {
             bestStreakEl.innerHTML = `Personal Best: ${streak.data.longest} Days`;
         }
+
+        // Display word of the day
+        displayWordOfTheDay();
 
         // Initialize journey map if not already initialized
         if (!state.journeyMap) {
@@ -1405,6 +1541,10 @@ window.onload = async function () {
         console.error('❌ Server connection failed:', error);
         showOfflineWarning();
     }
+
+    // Load random words and set word of the day
+    await loadRandomWords();
+    state.wordOfTheDay = getWordOfTheDay();
 
     // Start timer
     startTimer();

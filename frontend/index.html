@@ -1031,9 +1031,17 @@
                 <div class="absolute inset-0 opacity-60" style="background: linear-gradient(135deg, rgba(245, 239, 224, 0.9), rgba(244, 231, 215, 0.8));"></div>
                 
                 <div class="relative z-10">
-                    <div class="uppercase tracking-widest text-xs font-black mb-3 flex items-center gap-2" style="color: var(--ocean-mid);">
-                        <span class="text-xl">📜</span>
-                        <span class="compass-accent">Robin's Secret Message</span>
+                    <div class="uppercase tracking-widest text-xs font-black mb-3 flex items-center justify-between" style="color: var(--ocean-mid);">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xl">📜</span>
+                            <span class="compass-accent">Robin's Secret Message</span>
+                        </div>
+                        <button onclick="shuffleRandomWord()"
+                            class="group flex items-center justify-center w-10 h-10 rounded-xl transition-all transform hover:scale-110 active:scale-95"
+                            style="background: linear-gradient(135deg, var(--bronze-light), var(--copper)); border: 2px solid var(--bronze-dark); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"
+                            title="Get random word">
+                            <span class="text-xl group-hover:rotate-180 transition-transform duration-500">🎲</span>
+                        </button>
                     </div>
                     
                     <h3 class="text-3xl lg:text-4xl font-black mb-2 op-font break-words"
