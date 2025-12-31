@@ -29,7 +29,7 @@ const state = {
 };
 
 // Navigation order for swipe gestures
-const navigationOrder = ['dashboard', 'journal', 'vocabulary', 'phrases', 'motivation'];
+const navigationOrder = ['dashboard', 'journal', 'phrases', 'motivation'];
 
 // --- API HELPER FUNCTIONS ---
 async function apiCall(endpoint, options = {}) {
@@ -144,10 +144,6 @@ function navTo(viewId) {
     state.currentView = viewId;
 
     // Load data for specific views
-    if (viewId === 'vocabulary') {
-        loadCategories();
-        loadVocabulary();
-    }
     if (viewId === 'dashboard') {
         loadDashboard();
         if (state.journeyMap) {
@@ -505,10 +501,10 @@ function updateGermanDisplay(text, container) {
 }
 
 async function addWordFromJournal(germanWord) {
-    if (!confirm(`Add "${germanWord}" to your vocabulary?`)) return;
+    if (!confirm(`Add "${germanWord}" to Brook's Songs (phrases)?`)) return;
 
     try {
-        console.log(`Adding word "${germanWord}" to vocabulary...`);
+        console.log(`Adding word "${germanWord}" to phrases...`);
         
         // Fetch English translation first
         const translationResult = await apiCall('/translate/reverse', {
@@ -519,24 +515,24 @@ async function addWordFromJournal(germanWord) {
         const englishMeaning = translationResult.data.translated;
         console.log(`Translation received: "${englishMeaning}"`);
 
-        // Automatically add to vocabulary after getting translation
-        await apiCall('/vocabulary', {
+        // Add to phrases - backend will auto-generate examples using Gemini
+        await apiCall('/phrases', {
             method: 'POST',
             body: JSON.stringify({
-                word: englishMeaning, // Backend POST /api/vocabulary expects English 'word' and auto-translates or takes 'meaning' as German
-                meaning: germanWord   // Based on existing backend logic in vocabulary.js POST
+                english: englishMeaning,
+                german: germanWord
             })
         });
 
-        console.log(`Successfully added "${germanWord}" (${englishMeaning}) to vocabulary!`);
+        console.log(`Successfully added "${germanWord}" (${englishMeaning}) to Brook's Songs!`);
 
         // Show success
         const feedback = document.getElementById('feedback-area');
         feedback.classList.remove('hidden');
-        feedback.querySelector('span').innerHTML = `✅ Added "<b>${germanWord}</b>" → "<i>${englishMeaning}</i>" to vocabulary!`;
+        feedback.querySelector('span').innerHTML = `🎵 Added "<b>${germanWord}</b>" → "<i>${englishMeaning}</i>" to Brook's Songs with examples!`;
 
-        // Refresh vocabulary if on that page
-        if (state.currentView === 'vocabulary') loadVocabulary();
+        // Refresh phrases if on that page
+        if (state.currentView === 'phrases') loadPhrases();
         if (state.currentView === 'dashboard') {
             loadDashboard();
         } else {
@@ -546,7 +542,7 @@ async function addWordFromJournal(germanWord) {
     } catch (error) {
         console.error(`Error adding word "${germanWord}" from journal:`, error);
         console.error('Full error details:', error);
-        alert(`Failed to add word "${germanWord}": ${error.message}`);
+        alert(`Failed to add phrase "${germanWord}": ${error.message}`);
     }
 }
 
@@ -855,7 +851,7 @@ async function deleteJournalEntry(event, id) {
     }
 }
 
-// --- TEXT-TO-SPEECH FOR GERMAN WORDS ---
+// --- TEXT-TO-SPEECH FOR GERMAN WORDS/PHRASES ---
 function speakGermanWord(event, word, wordId) {
     event.stopPropagation();
     
@@ -906,503 +902,6 @@ function speakGermanWord(event, word, wordId) {
     window.speechSynthesis.speak(utterance);
 }
 
-// --- VOCABULARY ---
-async function loadVocabulary() {
-    try {
-        const sortMode = document.getElementById('vocab-sort').value;
-
-        // Get Done category ID
-        const doneCategory = state.categories.find(cat => cat.name.toLowerCase() === 'done');
-        const doneCategoryId = doneCategory ? doneCategory.id : null;
-        
-        // If viewing "All Words", exclude Done category
-        // If viewing a specific category, show only that category
-        let categoryParam = '';
-        if (state.selectedCategoryId && state.selectedCategoryId !== 'all') {
-            categoryParam = `&category_id=${state.selectedCategoryId}`;
-        } else if (doneCategoryId) {
-            // Exclude Done category from "All Words" view
-            categoryParam = `&exclude_category_id=${doneCategoryId}`;
-        }
-        
-        const result = await apiCall(`/vocabulary?sort=${sortMode}${categoryParam}`);
-        renderVocabulary(result.data);
-    } catch (error) {
-        console.error('Error loading vocabulary:', error);
-    }
-}
-
-function renderVocabulary(words) {
-    const container = document.getElementById('vocab-grid');
-    container.innerHTML = '';
-
-    if (words.length === 0) {
-        document.getElementById('empty-vocab-state').classList.remove('hidden');
-    } else {
-        document.getElementById('empty-vocab-state').classList.add('hidden');
-        words.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'glass-card p-6 rounded-xl relative cursor-pointer group hover:bg-[#fff9e6] transition-all border-2 border-[var(--op-wood)] shadow-[4px_4px_0px_#5d3615]';
-
-            const date = new Date(item.first_seen).toLocaleDateString();
-            const frequency = item.frequency > 1 ? `<div class="text-[10px] bg-[var(--op-blue)] text-white px-2 py-0.5 rounded-full inline-block mt-2 font-bold font-mono">ENCOUNTERED ${item.frequency}x</div>` : '';
-
-            div.innerHTML = `
-                <div onclick="toggleWordMeaning(${item.id}, event)" class="cursor-pointer">
-                    <div class="op-title text-xs text-[var(--op-red)] mb-1">ARREST WARRANT</div>
-                    <div class="flex items-center gap-2 mb-1">
-                        <div class="font-black text-2xl text-slate-800 op-font tracking-wide">${item.word}</div>
-                        <button onclick="speakGermanWord(event, '${item.word.replace(/'/g, "\\'")}', ${item.id})"
-                            id="speaker-${item.id}"
-                            class="w-8 h-8 flex items-center justify-center bg-[var(--ocean-mid)] hover:bg-[var(--ocean-deep)] text-white rounded-lg transition-all shadow-md hover:scale-110 flex-shrink-0"
-                            title="Pronounce word">
-                            🔊
-                        </button>
-                    </div>
-                    <div class="text-[10px] text-slate-500 uppercase font-black tracking-tighter">Seen: ${date}</div>
-                    ${frequency}
-                    <div id="meaning-${item.id}" class="hidden mt-4 pt-4 border-t-2 border-dashed border-[#5d3615]">
-                        <div class="text-[10px] text-[var(--op-blue)] font-black uppercase tracking-widest mb-1">Deciphered Meaning</div>
-                        <div class="text-md text-slate-700 italic font-medium" id="meaning-text-${item.id}">
-                            ${item.meaning || '<span class="text-slate-400">Consulting Robin...</span>'}
-                        </div>
-                    </div>
-                </div>
-                <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    <button onclick="showEditWordModal(event, ${item.id})" class="w-8 h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all shadow-md hover:scale-110" title="Edit Word">✏️</button>
-                    <button onclick="deleteWord(${item.id})" class="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all shadow-md hover:scale-110" title="Delete Word">💀</button>
-                </div>
-                <button onclick="markWordAsDone(event, ${item.id})"
-                    class="absolute bottom-2 right-2 w-6 h-6 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-full transition-all shadow-md hover:scale-110 opacity-70 hover:opacity-100"
-                    title="Mark as done">
-                    ✓
-                </button>
-            `;
-            container.appendChild(div);
-        });
-    }
-}
-
-
-function sortVocab() {
-    loadVocabulary();
-}
-
-async function toggleWordMeaning(id, event) {
-    event.stopPropagation();
-
-    const meaningDiv = document.getElementById(`meaning-${id}`);
-    const meaningText = document.getElementById(`meaning-text-${id}`);
-
-    if (meaningDiv.classList.contains('hidden')) {
-        meaningDiv.classList.remove('hidden');
-
-        // If meaning is not loaded, fetch it
-        if (meaningText.innerHTML.includes('Loading...') || meaningText.innerHTML.includes('text-slate-400')) {
-            try {
-                const result = await apiCall(`/vocabulary/${id}/meaning`);
-                meaningText.innerHTML = result.data.meaning || '<span class="text-slate-400">No meaning available</span>';
-            } catch (error) {
-                console.error('Error fetching meaning:', error);
-                meaningText.innerHTML = '<span class="text-red-400">Failed to load meaning</span>';
-            }
-        }
-    } else {
-        meaningDiv.classList.add('hidden');
-    }
-}
-
-async function addWord() {
-    const wordInput = document.getElementById('new-word-input');
-    const meaningInput = document.getElementById('new-word-meaning');
-    const categorySelect = document.getElementById('new-word-category');
-
-    const word = wordInput.value.trim();
-    const meaning = meaningInput.value.trim();
-    const category_id = categorySelect.value;
-
-    if (!word) {
-        alert('Please enter a word!');
-        return;
-    }
-
-    try {
-        const payload = { word };
-        if (meaning) {
-            payload.meaning = meaning;
-        }
-        if (category_id) {
-            payload.category_id = category_id;
-        }
-
-        await apiCall('/vocabulary', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-
-        // Clear inputs
-        wordInput.value = '';
-        meaningInput.value = '';
-
-        // Update journey activity
-        await updateJourneyActivity({ vocabulary_added: 1 });
-
-        // Reload vocabulary
-        await loadVocabulary();
-
-        // Show success feedback
-        const successMsg = document.createElement('div');
-        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
-        successMsg.innerHTML = '✓ Word added successfully!';
-        document.body.appendChild(successMsg);
-
-        setTimeout(() => successMsg.remove(), 3000);
-
-        // Update dashboard if visible
-        if (state.currentView === 'dashboard') {
-            await loadDashboard();
-        }
-    } catch (error) {
-        if (error.message.includes('already exists')) {
-            alert('This word is already in your vocabulary!');
-        } else {
-            alert('Failed to add word: ' + error.message);
-        }
-    }
-}
-
-async function deleteWord(id) {
-    try {
-        await apiCall(`/vocabulary/${id}`, { method: 'DELETE' });
-        await loadVocabulary();
-        if (state.currentView === 'dashboard') {
-            await loadDashboard();
-        }
-    } catch (error) {
-        alert('Failed to delete word: ' + error.message);
-    }
-}
-
-// Mark word as done (move to Done category)
-async function markWordAsDone(event, wordId) {
-    event.stopPropagation();
-    
-    try {
-        // Get Done category ID
-        const doneCategory = state.categories.find(cat => cat.name.toLowerCase() === 'done');
-        
-        if (!doneCategory) {
-            alert('Done category not found. Please refresh the page.');
-            return;
-        }
-        
-        // Update word to move it to Done category
-        await apiCall(`/vocabulary/${wordId}`, {
-            method: 'PUT',
-            body: JSON.stringify({
-                category_id: doneCategory.id
-            })
-        });
-        
-        // Show success feedback with animation
-        const successMsg = document.createElement('div');
-        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
-        successMsg.innerHTML = '✓ Word marked as done!';
-        document.body.appendChild(successMsg);
-        
-        setTimeout(() => successMsg.remove(), 2000);
-        
-        // Reload vocabulary (word will disappear from main view)
-        await loadVocabulary();
-        
-        // Update dashboard if visible
-        if (state.currentView === 'dashboard') {
-            await loadDashboard();
-        }
-    } catch (error) {
-        console.error('Error marking word as done:', error);
-        alert('Failed to mark word as done: ' + error.message);
-    }
-}
-
-// --- VOCABULARY CATEGORIES ---
-async function loadCategories() {
-    try {
-        const result = await apiCall('/vocabulary/categories');
-        state.categories = result.data;
-        
-        // Ensure "Done" category exists
-        await ensureDoneCategory();
-        
-        renderCategories();
-        updateCategorySelect();
-    } catch (error) {
-        console.error('Error loading categories:', error);
-    }
-}
-
-// Ensure "Done" category exists, create if not
-async function ensureDoneCategory() {
-    const doneCategory = state.categories.find(cat => cat.name.toLowerCase() === 'done');
-    
-    if (!doneCategory) {
-        try {
-            await apiCall('/vocabulary/categories', {
-                method: 'POST',
-                body: JSON.stringify({ name: 'Done' })
-            });
-            
-            // Reload categories to get the new one
-            const result = await apiCall('/vocabulary/categories');
-            state.categories = result.data;
-            console.log('✅ "Done" category created automatically');
-        } catch (error) {
-            console.error('Error creating Done category:', error);
-        }
-    }
-}
-
-function renderCategories() {
-    const container = document.getElementById('category-list');
-    if (!container) return;
-
-    // Keep "All Words" button
-    container.innerHTML = `
-        <button onclick="selectCategory('all')" id="cat-all"
-            class="w-full text-left px-4 py-3 rounded-xl transition-all font-medium ${state.selectedCategoryId === 'all' ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-white/50 text-slate-600 hover:bg-white hover:shadow-sm'}">
-            📁 All Words
-        </button>
-    `;
-
-    state.categories.forEach(cat => {
-        const isActive = state.selectedCategoryId == cat.id;
-        const btn = document.createElement('button');
-        btn.onclick = () => selectCategory(cat.id);
-        btn.id = `cat-${cat.id}`;
-        btn.className = `w-full text-left px-4 py-3 rounded-xl transition-all font-medium flex justify-between items-center group ${isActive ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-white/50 text-slate-600 hover:bg-white hover:shadow-sm'}`;
-
-        btn.innerHTML = `
-            <span>📁 ${cat.name}</span>
-            <span onclick="deleteCategory(event, ${cat.id})" class="opacity-0 group-hover:opacity-100 text-xs bg-red-400 hover:bg-red-500 text-white p-1 rounded-md transition-all">✕</span>
-        `;
-        container.appendChild(btn);
-    });
-}
-
-function updateCategorySelect() {
-    const selects = ['new-word-category', 'edit-word-category'];
-    
-    selects.forEach(selectId => {
-        const select = document.getElementById(selectId);
-        if (!select) return;
-
-        const currentVal = select.value;
-        select.innerHTML = '<option value="">No Category</option>';
-
-        state.categories.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat.id;
-            option.textContent = cat.name;
-            select.appendChild(option);
-        });
-
-        select.value = currentVal;
-    });
-}
-
-function selectCategory(id) {
-    state.selectedCategoryId = id;
-    renderCategories();
-    loadVocabulary();
-}
-
-function showAddCategoryModal() {
-    const modal = document.getElementById('add-category-modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    document.getElementById('new-category-name').focus();
-}
-
-function hideAddCategoryModal() {
-    const modal = document.getElementById('add-category-modal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-    document.getElementById('new-category-name').value = '';
-}
-
-async function addCategory() {
-    const nameInput = document.getElementById('new-category-name');
-    const name = nameInput.value.trim();
-
-    if (!name) {
-        alert('Please enter a folder name!');
-        return;
-    }
-
-    try {
-        await apiCall('/vocabulary/categories', {
-            method: 'POST',
-            body: JSON.stringify({ name })
-        });
-
-        hideAddCategoryModal();
-        await loadCategories();
-
-        // Show success feedback
-        const successMsg = document.createElement('div');
-        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[110] animate-fade-in';
-        successMsg.innerHTML = '✓ Folder created successfully!';
-        document.body.appendChild(successMsg);
-        setTimeout(() => successMsg.remove(), 3000);
-
-    } catch (error) {
-        alert('Failed to add folder: ' + error.message);
-    }
-}
-
-async function deleteCategory(event, id) {
-    event.stopPropagation();
-    if (!confirm('Are you sure you want to delete this folder? Words inside will not be deleted but will no longer have a folder.')) return;
-
-    try {
-        await apiCall(`/vocabulary/categories/${id}`, { method: 'DELETE' });
-
-        if (state.selectedCategoryId == id) {
-            state.selectedCategoryId = 'all';
-        }
-
-        await loadCategories();
-        await loadVocabulary();
-    } catch (error) {
-        alert('Failed to delete folder: ' + error.message);
-    }
-}
-
-// --- EDIT VOCABULARY WORD ---
-async function showEditWordModal(event, wordId) {
-    event.stopPropagation();
-    
-    try {
-        // Fetch the word details
-        const result = await apiCall(`/vocabulary/${wordId}`);
-        const word = result.data;
-
-        // Populate the modal
-        document.getElementById('edit-word-german').value = word.word || '';
-        document.getElementById('edit-word-meaning').value = word.meaning || '';
-        document.getElementById('edit-word-category').value = word.category_id || '';
-
-        state.editingWordId = wordId;
-
-        // Show modal
-        const modal = document.getElementById('edit-word-modal');
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-    } catch (error) {
-        console.error('Error loading word:', error);
-        alert('Failed to load word details');
-    }
-}
-
-function hideEditWordModal() {
-    const modal = document.getElementById('edit-word-modal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-    
-    // Clear form fields
-    document.getElementById('edit-word-german').value = '';
-    document.getElementById('edit-word-meaning').value = '';
-    document.getElementById('edit-word-category').value = '';
-    state.editingWordId = null;
-}
-
-async function updateWord() {
-    if (!state.editingWordId) return;
-
-    let word = document.getElementById('edit-word-german').value.trim();
-    let meaning = document.getElementById('edit-word-meaning').value.trim();
-    const category_id = document.getElementById('edit-word-category').value;
-
-    // Validate that at least one field is provided
-    if (!word && !meaning) {
-        alert('Please enter either a German word or English meaning!');
-        return;
-    }
-
-    // Show loading state
-    const updateBtn = event?.target?.closest('button') || document.querySelector('button[onclick="updateWord()"]');
-    const originalText = updateBtn?.innerHTML;
-    if (updateBtn) {
-        updateBtn.innerHTML = '<span>⏳</span> Translating & Updating...';
-        updateBtn.disabled = true;
-    }
-
-    try {
-        // Auto-translate missing field
-        if (word && !meaning) {
-            // German word provided, translate to English
-            try {
-                const translationResult = await apiCall('/translate/reverse', {
-                    method: 'POST',
-                    body: JSON.stringify({ text: word })
-                });
-                meaning = translationResult.data.translated;
-            } catch (error) {
-                console.error('Error translating to English:', error);
-                // Continue without translation if it fails
-            }
-        } else if (meaning && !word) {
-            // English meaning provided, translate to German
-            try {
-                const translationResult = await apiCall('/translate', {
-                    method: 'POST',
-                    body: JSON.stringify({ text: meaning })
-                });
-                word = translationResult.data.translated;
-            } catch (error) {
-                console.error('Error translating to German:', error);
-                // Continue without translation if it fails
-            }
-        }
-
-        const payload = {
-            word,
-            meaning: meaning || null
-        };
-        if (category_id) {
-            payload.category_id = category_id;
-        }
-
-        await apiCall(`/vocabulary/${state.editingWordId}`, {
-            method: 'PUT',
-            body: JSON.stringify(payload)
-        });
-
-        hideEditWordModal();
-        await loadVocabulary();
-
-        // Show success feedback
-        const successMsg = document.createElement('div');
-        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
-        successMsg.innerHTML = '✓ Word updated successfully with auto-translation!';
-        document.body.appendChild(successMsg);
-
-        setTimeout(() => successMsg.remove(), 3000);
-
-        // Update dashboard if visible
-        if (state.currentView === 'dashboard') {
-            await loadDashboard();
-        }
-    } catch (error) {
-        alert('Failed to update word: ' + error.message);
-    } finally {
-        if (updateBtn) {
-            updateBtn.innerHTML = originalText;
-            updateBtn.disabled = false;
-        }
-    }
-}
-
 // --- PHRASES ---
 let selectedPhraseCategoryId = 'all';
 let phraseCategories = [];
@@ -1434,34 +933,6 @@ function toggleAddPhraseSection() {
         document.getElementById('new-phrase-english').value = '';
         document.getElementById('new-phrase-german').value = '';
         document.getElementById('new-phrase-category').value = '';
-    }
-}
-
-function toggleAddWordSection() {
-    console.log('🔍 DEBUG: toggleAddWordSection called');
-    const section = document.getElementById('add-word-section');
-    const toggleBtn = document.getElementById('toggle-add-word-btn');
-    const isHidden = section.classList.contains('hidden');
-
-    if (isHidden) {
-        section.classList.remove('hidden');
-        if (toggleBtn) {
-            toggleBtn.querySelector('span').innerHTML = '✕';
-            toggleBtn.classList.replace('bg-blue-600', 'bg-slate-600');
-            toggleBtn.classList.replace('hover:bg-blue-700', 'hover:bg-slate-700');
-        }
-    } else {
-        section.classList.add('hidden');
-        if (toggleBtn) {
-            toggleBtn.querySelector('span').innerHTML = '+';
-            toggleBtn.classList.replace('bg-slate-600', 'bg-blue-600');
-            toggleBtn.classList.replace('hover:bg-slate-700', 'hover:bg-blue-700');
-        }
-
-        // Clear form when hiding
-        document.getElementById('new-word-input').value = '';
-        document.getElementById('new-word-meaning').value = '';
-        document.getElementById('new-word-category').value = '';
     }
 }
 
@@ -2321,7 +1792,6 @@ function getViewDisplayName(viewId) {
     const displayNames = {
         'dashboard': "Captain's Log",
         'journal': "Zoro's Training",
-        'vocabulary': "Nami's Maps",
         'phrases': "Brook's Songs",
         'motivation': "Sanji's Notes"
     };
