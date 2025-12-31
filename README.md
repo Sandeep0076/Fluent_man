@@ -147,6 +147,8 @@ The 30-Day Journey Map transforms your German learning into an epic adventure! T
    SUPABASE_ANON_KEY=your_supabase_anon_key
    GEMINI_API_KEY=your_gemini_api_key
    ```
+   
+   **⚠️ Security Note:** See [`SECURITY.md`](SECURITY.md) for detailed instructions on securely managing API keys for both local development and production deployment.
 
 4. **Set up Supabase database:**
    - Create a new Supabase project at https://supabase.com
@@ -400,10 +402,14 @@ GEMINI_API_KEY=your_gemini_api_key
 
 ### Production Environment Variables (Cloudflare)
 
-Set these in Cloudflare Dashboard → Worker Settings → Variables and Secrets:
+**⚠️ IMPORTANT:** For secure API key management, see [`SECURITY.md`](SECURITY.md) for detailed setup instructions.
+
+Set these as **encrypted secrets** in Cloudflare Dashboard → Worker Settings → Variables and Secrets:
 - `SUPABASE_URL`: Your Supabase project URL
 - `SUPABASE_ANON_KEY`: Your Supabase anonymous key
 - `GEMINI_API_KEY`: Your Google Gemini API key
+
+**Never** put these values in [`wrangler.toml`](backend-worker/wrangler.toml) or commit them to Git!
 
 ### Worker Configuration
 

@@ -15,6 +15,7 @@ const state = {
     germanBullets: [],
     selectedCategoryId: 'all',
     categories: [],
+    editingWordId: null,
     journeyMap: null,
     randomWords: [],
     wordOfTheDay: null,
@@ -504,9 +505,11 @@ function updateGermanDisplay(text, container) {
 }
 
 async function addWordFromJournal(germanWord) {
-    if (!confirm(`Do you want to add "${germanWord}" to your vocabulary bank?`)) return;
+    if (!confirm(`Add "${germanWord}" to your vocabulary?`)) return;
 
     try {
+        console.log(`Adding word "${germanWord}" to vocabulary...`);
+        
         // Fetch English translation first
         const translationResult = await apiCall('/translate/reverse', {
             method: 'POST',
@@ -514,10 +517,9 @@ async function addWordFromJournal(germanWord) {
         });
 
         const englishMeaning = translationResult.data.translated;
+        console.log(`Translation received: "${englishMeaning}"`);
 
-        // Show confirm with translation
-        if (!confirm(`Translated as: "${englishMeaning}". Add this to vocabulary?`)) return;
-
+        // Automatically add to vocabulary after getting translation
         await apiCall('/vocabulary', {
             method: 'POST',
             body: JSON.stringify({
@@ -526,10 +528,12 @@ async function addWordFromJournal(germanWord) {
             })
         });
 
+        console.log(`Successfully added "${germanWord}" (${englishMeaning}) to vocabulary!`);
+
         // Show success
         const feedback = document.getElementById('feedback-area');
         feedback.classList.remove('hidden');
-        feedback.querySelector('span').innerHTML = `🎉 Added "<b>${germanWord}</b>" (<i>${englishMeaning}</i>) to vocabulary!`;
+        feedback.querySelector('span').innerHTML = `✅ Added "<b>${germanWord}</b>" → "<i>${englishMeaning}</i>" to vocabulary!`;
 
         // Refresh vocabulary if on that page
         if (state.currentView === 'vocabulary') loadVocabulary();
@@ -540,8 +544,9 @@ async function addWordFromJournal(germanWord) {
         }
 
     } catch (error) {
-        console.error('Error adding word from journal:', error);
-        alert('Failed to add word: ' + error.message);
+        console.error(`Error adding word "${germanWord}" from journal:`, error);
+        console.error('Full error details:', error);
+        alert(`Failed to add word "${germanWord}": ${error.message}`);
     }
 }
 
@@ -850,22 +855,78 @@ async function deleteJournalEntry(event, id) {
     }
 }
 
+// --- TEXT-TO-SPEECH FOR GERMAN WORDS ---
+function speakGermanWord(event, word, wordId) {
+    event.stopPropagation();
+    
+    // Check if browser supports speech synthesis
+    if (!('speechSynthesis' in window)) {
+        alert('Sorry, your browser does not support text-to-speech. Please try a modern browser like Chrome, Firefox, or Edge.');
+        return;
+    }
+    
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    
+    // Create speech utterance
+    const utterance = new SpeechSynthesisUtterance(word);
+    utterance.lang = 'de-DE'; // German language
+    utterance.rate = 0.85; // Slightly slower for clarity
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    
+    // Get the speaker button
+    const speakerBtn = document.getElementById(`speaker-${wordId}`);
+    
+    // Visual feedback - animate button while speaking
+    if (speakerBtn) {
+        speakerBtn.classList.add('animate-pulse');
+        speakerBtn.style.transform = 'scale(1.1)';
+    }
+    
+    // Reset button when speech ends
+    utterance.onend = () => {
+        if (speakerBtn) {
+            speakerBtn.classList.remove('animate-pulse');
+            speakerBtn.style.transform = 'scale(1)';
+        }
+    };
+    
+    // Handle errors
+    utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
+        if (speakerBtn) {
+            speakerBtn.classList.remove('animate-pulse');
+            speakerBtn.style.transform = 'scale(1)';
+        }
+        alert('Failed to pronounce the word. Please try again.');
+    };
+    
+    // Speak the word
+    window.speechSynthesis.speak(utterance);
+}
+
 // --- VOCABULARY ---
 async function loadVocabulary() {
     try {
-        const searchText = document.getElementById('vocab-search').value;
         const sortMode = document.getElementById('vocab-sort').value;
 
-        // If there's a search query, use the unified search endpoint
-        if (searchText && searchText.trim().length > 0) {
-            const result = await apiCall(`/search?q=${encodeURIComponent(searchText)}`);
-            renderSearchResults(result.data, searchText);
-        } else {
-            // Otherwise, load all vocabulary with sorting
-            const categoryParam = state.selectedCategoryId && state.selectedCategoryId !== 'all' ? `&category_id=${state.selectedCategoryId}` : '';
-            const result = await apiCall(`/vocabulary?sort=${sortMode}${categoryParam}`);
-            renderVocabulary(result.data);
+        // Get Done category ID
+        const doneCategory = state.categories.find(cat => cat.name.toLowerCase() === 'done');
+        const doneCategoryId = doneCategory ? doneCategory.id : null;
+        
+        // If viewing "All Words", exclude Done category
+        // If viewing a specific category, show only that category
+        let categoryParam = '';
+        if (state.selectedCategoryId && state.selectedCategoryId !== 'all') {
+            categoryParam = `&category_id=${state.selectedCategoryId}`;
+        } else if (doneCategoryId) {
+            // Exclude Done category from "All Words" view
+            categoryParam = `&exclude_category_id=${doneCategoryId}`;
         }
+        
+        const result = await apiCall(`/vocabulary?sort=${sortMode}${categoryParam}`);
+        renderVocabulary(result.data);
     } catch (error) {
         console.error('Error loading vocabulary:', error);
     }
@@ -889,7 +950,15 @@ function renderVocabulary(words) {
             div.innerHTML = `
                 <div onclick="toggleWordMeaning(${item.id}, event)" class="cursor-pointer">
                     <div class="op-title text-xs text-[var(--op-red)] mb-1">ARREST WARRANT</div>
-                    <div class="font-black text-2xl text-slate-800 mb-1 op-font tracking-wide">${item.word}</div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <div class="font-black text-2xl text-slate-800 op-font tracking-wide">${item.word}</div>
+                        <button onclick="speakGermanWord(event, '${item.word.replace(/'/g, "\\'")}', ${item.id})"
+                            id="speaker-${item.id}"
+                            class="w-8 h-8 flex items-center justify-center bg-[var(--ocean-mid)] hover:bg-[var(--ocean-deep)] text-white rounded-lg transition-all shadow-md hover:scale-110 flex-shrink-0"
+                            title="Pronounce word">
+                            🔊
+                        </button>
+                    </div>
                     <div class="text-[10px] text-slate-500 uppercase font-black tracking-tighter">Seen: ${date}</div>
                     ${frequency}
                     <div id="meaning-${item.id}" class="hidden mt-4 pt-4 border-t-2 border-dashed border-[#5d3615]">
@@ -899,141 +968,21 @@ function renderVocabulary(words) {
                         </div>
                     </div>
                 </div>
-                <button onclick="deleteWord(${item.id})" class="absolute top-2 right-2 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity text-2xl font-black">✕</button>
+                <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <button onclick="showEditWordModal(event, ${item.id})" class="w-8 h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all shadow-md hover:scale-110" title="Edit Word">✏️</button>
+                    <button onclick="deleteWord(${item.id})" class="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all shadow-md hover:scale-110" title="Delete Word">💀</button>
+                </div>
+                <button onclick="markWordAsDone(event, ${item.id})"
+                    class="absolute bottom-2 right-2 w-6 h-6 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-full transition-all shadow-md hover:scale-110 opacity-70 hover:opacity-100"
+                    title="Mark as done">
+                    ✓
+                </button>
             `;
             container.appendChild(div);
         });
     }
 }
 
-function renderSearchResults(searchData, searchTerm) {
-    const container = document.getElementById('vocab-grid');
-    container.innerHTML = '';
-
-    const { vocabulary, journal_sentences, counts } = searchData;
-    const totalResults = counts.vocabulary + counts.journal_sentences;
-
-    if (totalResults === 0) {
-        container.innerHTML = `
-            <div class="col-span-full text-center py-20 text-slate-400">
-                <div class="text-6xl mb-4 grayscale opacity-50">🔍</div>
-                <h3 class="text-2xl font-bold mb-2">No results found</h3>
-                <p>Try searching for a different word or phrase</p>
-            </div>
-        `;
-        document.getElementById('empty-vocab-state').classList.add('hidden');
-        return;
-    }
-
-    document.getElementById('empty-vocab-state').classList.add('hidden');
-
-    // Add search results header
-    const header = document.createElement('div');
-    header.className = 'col-span-full glass-card p-6 rounded-[24px] !bg-blue-50/80 border-blue-100';
-    header.innerHTML = `
-        <div class="flex items-center justify-between">
-            <div>
-                <h3 class="text-lg font-bold text-slate-800 mb-1">Search Results for "${searchTerm}"</h3>
-                <p class="text-sm text-slate-600">
-                    Found ${counts.vocabulary} vocabulary word${counts.vocabulary !== 1 ? 's' : ''}
-                    and ${counts.journal_sentences} sentence${counts.journal_sentences !== 1 ? 's' : ''} from journals
-                </p>
-            </div>
-            <button onclick="clearSearch()" class="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-medium transition-all">
-                Clear Search
-            </button>
-        </div>
-    `;
-    container.appendChild(header);
-
-    // Render vocabulary results
-    if (vocabulary.length > 0) {
-        const vocabHeader = document.createElement('div');
-        vocabHeader.className = 'col-span-full mt-4';
-        vocabHeader.innerHTML = `
-            <h4 class="text-md font-bold text-slate-700 mb-3 flex items-center gap-2">
-                <span class="text-xl">📚</span> Vocabulary Words (${counts.vocabulary})
-            </h4>
-        `;
-        container.appendChild(vocabHeader);
-
-        vocabulary.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'glass-card p-4 rounded-[20px] relative cursor-pointer group hover:bg-white/90 transition-all !bg-white/50 border border-white/60';
-
-            const date = new Date(item.first_seen).toLocaleDateString();
-            const frequency = item.frequency > 1 ? `<div class="text-xs text-blue-600 mt-2 font-mono font-bold">Used ${item.frequency}x</div>` : '';
-
-            div.innerHTML = `
-                <div onclick="toggleWordMeaning(${item.id}, event)" class="cursor-pointer">
-                    <div class="font-bold text-xl text-slate-800 mb-1">${item.word}</div>
-                    <div class="text-xs text-slate-500 opacity-80">Added: ${date}</div>
-                    ${frequency}
-                    <div id="meaning-${item.id}" class="hidden mt-3 pt-3 border-t border-slate-200">
-                        <div class="text-xs text-blue-500 font-bold uppercase tracking-wide mb-1">Meaning</div>
-                        <div class="text-sm text-slate-700 italic" id="meaning-text-${item.id}">
-                            ${item.meaning || '<span class="text-slate-400">Loading...</span>'}
-                        </div>
-                    </div>
-                </div>
-                <button onclick="deleteWord(${item.id})" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xl">×</button>
-            `;
-            container.appendChild(div);
-        });
-    }
-
-    // Render journal sentence results
-    if (journal_sentences.length > 0) {
-        const journalHeader = document.createElement('div');
-        journalHeader.className = 'col-span-full mt-6';
-        journalHeader.innerHTML = `
-            <h4 class="text-md font-bold text-slate-700 mb-3 flex items-center gap-2">
-                <span class="text-xl">✍️</span> Journal Sentences (${counts.journal_sentences})
-            </h4>
-        `;
-        container.appendChild(journalHeader);
-
-        journal_sentences.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'glass-card p-5 rounded-[20px] hover:bg-white/90 transition-all !bg-white/70 border border-white/60 cursor-pointer group';
-            div.onclick = () => viewJournalEntry(item.entry_id);
-
-            const date = new Date(item.date).toLocaleDateString('en-US', {
-                weekday: 'short',
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
-
-            const languageLabel = item.language === 'german' ?
-                '<span class="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full font-bold">🇩🇪 German</span>' :
-                '<span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-bold">🇬🇧 English</span>';
-
-            div.innerHTML = `
-                <div class="flex justify-between items-start mb-3">
-                    <div class="text-xs text-slate-500 font-medium">${date}</div>
-                    ${languageLabel}
-                </div>
-                <p class="text-slate-700 leading-relaxed italic group-hover:text-slate-900 transition-colors">
-                    "${item.sentence}"
-                </p>
-                <div class="mt-3 text-xs text-blue-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                    Click to view full journal entry →
-                </div>
-            `;
-            container.appendChild(div);
-        });
-    }
-}
-
-function clearSearch() {
-    document.getElementById('vocab-search').value = '';
-    loadVocabulary();
-}
-
-function filterVocab() {
-    loadVocabulary();
-}
 
 function sortVocab() {
     loadVocabulary();
@@ -1134,15 +1083,82 @@ async function deleteWord(id) {
     }
 }
 
+// Mark word as done (move to Done category)
+async function markWordAsDone(event, wordId) {
+    event.stopPropagation();
+    
+    try {
+        // Get Done category ID
+        const doneCategory = state.categories.find(cat => cat.name.toLowerCase() === 'done');
+        
+        if (!doneCategory) {
+            alert('Done category not found. Please refresh the page.');
+            return;
+        }
+        
+        // Update word to move it to Done category
+        await apiCall(`/vocabulary/${wordId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                category_id: doneCategory.id
+            })
+        });
+        
+        // Show success feedback with animation
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+        successMsg.innerHTML = '✓ Word marked as done!';
+        document.body.appendChild(successMsg);
+        
+        setTimeout(() => successMsg.remove(), 2000);
+        
+        // Reload vocabulary (word will disappear from main view)
+        await loadVocabulary();
+        
+        // Update dashboard if visible
+        if (state.currentView === 'dashboard') {
+            await loadDashboard();
+        }
+    } catch (error) {
+        console.error('Error marking word as done:', error);
+        alert('Failed to mark word as done: ' + error.message);
+    }
+}
+
 // --- VOCABULARY CATEGORIES ---
 async function loadCategories() {
     try {
         const result = await apiCall('/vocabulary/categories');
         state.categories = result.data;
+        
+        // Ensure "Done" category exists
+        await ensureDoneCategory();
+        
         renderCategories();
         updateCategorySelect();
     } catch (error) {
         console.error('Error loading categories:', error);
+    }
+}
+
+// Ensure "Done" category exists, create if not
+async function ensureDoneCategory() {
+    const doneCategory = state.categories.find(cat => cat.name.toLowerCase() === 'done');
+    
+    if (!doneCategory) {
+        try {
+            await apiCall('/vocabulary/categories', {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Done' })
+            });
+            
+            // Reload categories to get the new one
+            const result = await apiCall('/vocabulary/categories');
+            state.categories = result.data;
+            console.log('✅ "Done" category created automatically');
+        } catch (error) {
+            console.error('Error creating Done category:', error);
+        }
     }
 }
 
@@ -1174,20 +1190,24 @@ function renderCategories() {
 }
 
 function updateCategorySelect() {
-    const select = document.getElementById('new-word-category');
-    if (!select) return;
+    const selects = ['new-word-category', 'edit-word-category'];
+    
+    selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (!select) return;
 
-    const currentVal = select.value;
-    select.innerHTML = '<option value="">No Category</option>';
+        const currentVal = select.value;
+        select.innerHTML = '<option value="">No Category</option>';
 
-    state.categories.forEach(cat => {
-        const option = document.createElement('option');
-        option.value = cat.id;
-        option.textContent = cat.name;
-        select.appendChild(option);
+        state.categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.id;
+            option.textContent = cat.name;
+            select.appendChild(option);
+        });
+
+        select.value = currentVal;
     });
-
-    select.value = currentVal;
 }
 
 function selectCategory(id) {
@@ -1258,10 +1278,136 @@ async function deleteCategory(event, id) {
     }
 }
 
+// --- EDIT VOCABULARY WORD ---
+async function showEditWordModal(event, wordId) {
+    event.stopPropagation();
+    
+    try {
+        // Fetch the word details
+        const result = await apiCall(`/vocabulary/${wordId}`);
+        const word = result.data;
+
+        // Populate the modal
+        document.getElementById('edit-word-german').value = word.word || '';
+        document.getElementById('edit-word-meaning').value = word.meaning || '';
+        document.getElementById('edit-word-category').value = word.category_id || '';
+
+        state.editingWordId = wordId;
+
+        // Show modal
+        const modal = document.getElementById('edit-word-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    } catch (error) {
+        console.error('Error loading word:', error);
+        alert('Failed to load word details');
+    }
+}
+
+function hideEditWordModal() {
+    const modal = document.getElementById('edit-word-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    
+    // Clear form fields
+    document.getElementById('edit-word-german').value = '';
+    document.getElementById('edit-word-meaning').value = '';
+    document.getElementById('edit-word-category').value = '';
+    state.editingWordId = null;
+}
+
+async function updateWord() {
+    if (!state.editingWordId) return;
+
+    let word = document.getElementById('edit-word-german').value.trim();
+    let meaning = document.getElementById('edit-word-meaning').value.trim();
+    const category_id = document.getElementById('edit-word-category').value;
+
+    // Validate that at least one field is provided
+    if (!word && !meaning) {
+        alert('Please enter either a German word or English meaning!');
+        return;
+    }
+
+    // Show loading state
+    const updateBtn = event?.target?.closest('button') || document.querySelector('button[onclick="updateWord()"]');
+    const originalText = updateBtn?.innerHTML;
+    if (updateBtn) {
+        updateBtn.innerHTML = '<span>⏳</span> Translating & Updating...';
+        updateBtn.disabled = true;
+    }
+
+    try {
+        // Auto-translate missing field
+        if (word && !meaning) {
+            // German word provided, translate to English
+            try {
+                const translationResult = await apiCall('/translate/reverse', {
+                    method: 'POST',
+                    body: JSON.stringify({ text: word })
+                });
+                meaning = translationResult.data.translated;
+            } catch (error) {
+                console.error('Error translating to English:', error);
+                // Continue without translation if it fails
+            }
+        } else if (meaning && !word) {
+            // English meaning provided, translate to German
+            try {
+                const translationResult = await apiCall('/translate', {
+                    method: 'POST',
+                    body: JSON.stringify({ text: meaning })
+                });
+                word = translationResult.data.translated;
+            } catch (error) {
+                console.error('Error translating to German:', error);
+                // Continue without translation if it fails
+            }
+        }
+
+        const payload = {
+            word,
+            meaning: meaning || null
+        };
+        if (category_id) {
+            payload.category_id = category_id;
+        }
+
+        await apiCall(`/vocabulary/${state.editingWordId}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+
+        hideEditWordModal();
+        await loadVocabulary();
+
+        // Show success feedback
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+        successMsg.innerHTML = '✓ Word updated successfully with auto-translation!';
+        document.body.appendChild(successMsg);
+
+        setTimeout(() => successMsg.remove(), 3000);
+
+        // Update dashboard if visible
+        if (state.currentView === 'dashboard') {
+            await loadDashboard();
+        }
+    } catch (error) {
+        alert('Failed to update word: ' + error.message);
+    } finally {
+        if (updateBtn) {
+            updateBtn.innerHTML = originalText;
+            updateBtn.disabled = false;
+        }
+    }
+}
+
 // --- PHRASES ---
 let selectedPhraseCategoryId = 'all';
 let phraseCategories = [];
 let editingPhraseId = null;
+let donePhraseCategory = null;
 
 function toggleAddPhraseSection() {
     console.log('🔍 DEBUG: toggleAddPhraseSection called');
@@ -1291,15 +1437,54 @@ function toggleAddPhraseSection() {
     }
 }
 
+function toggleAddWordSection() {
+    console.log('🔍 DEBUG: toggleAddWordSection called');
+    const section = document.getElementById('add-word-section');
+    const toggleBtn = document.getElementById('toggle-add-word-btn');
+    const isHidden = section.classList.contains('hidden');
+
+    if (isHidden) {
+        section.classList.remove('hidden');
+        if (toggleBtn) {
+            toggleBtn.querySelector('span').innerHTML = '✕';
+            toggleBtn.classList.replace('bg-blue-600', 'bg-slate-600');
+            toggleBtn.classList.replace('hover:bg-blue-700', 'hover:bg-slate-700');
+        }
+    } else {
+        section.classList.add('hidden');
+        if (toggleBtn) {
+            toggleBtn.querySelector('span').innerHTML = '+';
+            toggleBtn.classList.replace('bg-slate-600', 'bg-blue-600');
+            toggleBtn.classList.replace('hover:bg-slate-700', 'hover:bg-blue-700');
+        }
+
+        // Clear form when hiding
+        document.getElementById('new-word-input').value = '';
+        document.getElementById('new-word-meaning').value = '';
+        document.getElementById('new-word-category').value = '';
+    }
+}
+
 // DEBUG: Verify function is globally accessible
 console.log('🔍 DEBUG: toggleAddPhraseSection defined?', typeof toggleAddPhraseSection);
 console.log('🔍 DEBUG: toggleAddPhraseSection on window?', typeof window.toggleAddPhraseSection);
 
 async function loadPhrases() {
     try {
-        const categoryParam = selectedPhraseCategoryId && selectedPhraseCategoryId !== 'all'
-            ? `?category_id=${selectedPhraseCategoryId}`
-            : '';
+        // Get Done category ID
+        const doneCategory = phraseCategories.find(cat => cat.name.toLowerCase() === 'done');
+        const doneCategoryId = doneCategory ? doneCategory.id : null;
+        
+        // If viewing "All Phrases", exclude Done category
+        // If viewing a specific category, show only that category
+        let categoryParam = '';
+        if (selectedPhraseCategoryId && selectedPhraseCategoryId !== 'all') {
+            categoryParam = `?category_id=${selectedPhraseCategoryId}`;
+        } else if (doneCategoryId) {
+            // Exclude Done category from "All Phrases" view
+            categoryParam = `?exclude_category_id=${doneCategoryId}`;
+        }
+        
         const result = await apiCall(`/phrases${categoryParam}`);
         renderPhrases(result.data);
     } catch (error) {
@@ -1358,7 +1543,15 @@ function renderPhrases(phrases) {
                 <div class="space-y-4">
                     <div>
                         <div class="text-[10px] font-black text-[var(--op-red)] uppercase tracking-widest mb-2 op-font">🇩🇪 German Example</div>
-                        <p class="text-lg font-bold text-[#5d3615] op-font">${exampleGerman}</p>
+                        <div class="flex items-center gap-2">
+                            <p class="text-lg font-bold text-[#5d3615] op-font flex-1">${exampleGerman}</p>
+                            <button onclick="speakGermanWord(event, '${exampleGerman.replace(/'/g, "\\'")}', ${phrase.id})"
+                                id="speaker-${phrase.id}"
+                                class="w-8 h-8 flex items-center justify-center bg-[var(--ocean-mid)] hover:bg-[var(--ocean-deep)] text-white rounded-lg transition-all shadow-md hover:scale-110 flex-shrink-0"
+                                title="Pronounce phrase">
+                                🔊
+                            </button>
+                        </div>
                     </div>
                     <div>
                         <div class="text-[10px] font-black text-[var(--op-blue)] uppercase tracking-widest mb-2 op-font">🇬🇧 English Example</div>
@@ -1367,6 +1560,11 @@ function renderPhrases(phrases) {
                 </div>
                 <div class="mt-4 text-[10px] text-slate-500 italic text-center">Yo-ho-ho-ho! 🎻</div>
             </div>
+            <button onclick="markPhraseAsDone(event, ${phrase.id})"
+                class="absolute bottom-2 right-2 w-6 h-6 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-full transition-all shadow-md hover:scale-110 opacity-70 hover:opacity-100 text-xs"
+                title="Mark as done">
+                ✓
+            </button>
         `;
         container.appendChild(div);
     });
@@ -1443,11 +1641,83 @@ async function addPhrase() {
     }
 }
 
+// Ensure "Done" phrase category exists, create if not
+async function ensureDonePhraseCategory() {
+    const doneCategory = phraseCategories.find(cat => cat.name.toLowerCase() === 'done');
+    
+    if (!doneCategory) {
+        try {
+            await apiCall('/phrases/categories', {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Done' })
+            });
+            
+            // Reload categories to get the new one
+            const result = await apiCall('/phrases/categories');
+            phraseCategories = result.data;
+            donePhraseCategory = phraseCategories.find(cat => cat.name.toLowerCase() === 'done');
+            console.log('✅ "Done" phrase category created automatically');
+        } catch (error) {
+            console.error('Error creating Done phrase category:', error);
+        }
+    } else {
+        donePhraseCategory = doneCategory;
+    }
+    
+    return donePhraseCategory;
+}
+
+// Mark phrase as done (move to Done category)
+async function markPhraseAsDone(event, phraseId) {
+    event.stopPropagation();
+    
+    try {
+        // Ensure Done category exists
+        const doneCategory = await ensureDonePhraseCategory();
+        
+        if (!doneCategory) {
+            alert('Done category not found. Please refresh the page.');
+            return;
+        }
+        
+        // Update phrase to move it to Done category
+        await apiCall(`/phrases/${phraseId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                category_id: doneCategory.id
+            })
+        });
+        
+        // Show success feedback with animation
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+        successMsg.innerHTML = '✓ Phrase marked as done!';
+        document.body.appendChild(successMsg);
+        
+        setTimeout(() => successMsg.remove(), 2000);
+        
+        // Reload phrases (phrase will disappear from main view)
+        await loadPhrases();
+        
+        // Update dashboard if visible
+        if (state.currentView === 'dashboard') {
+            await loadDashboard();
+        }
+    } catch (error) {
+        console.error('Error marking phrase as done:', error);
+        alert('Failed to mark phrase as done: ' + error.message);
+    }
+}
+
 // --- PHRASE CATEGORIES ---
 async function loadPhraseCategories() {
     try {
         const result = await apiCall('/phrases/categories');
         phraseCategories = result.data;
+        
+        // Ensure "Done" category exists
+        await ensureDonePhraseCategory();
+        
         renderPhraseCategories();
         updatePhraseCategorySelects();
     } catch (error) {
@@ -2120,6 +2390,15 @@ window.onload = async function () {
     if (mainContent) {
         mainContent.addEventListener('touchstart', handleTouchStart, { passive: true });
         mainContent.addEventListener('touchend', handleTouchEnd, { passive: true });
+    }
+
+    // Initialize global search
+    if (typeof GlobalSearch !== 'undefined') {
+        window.globalSearch = new GlobalSearch(API_BASE);
+        window.globalSearch.init();
+        console.log('✅ Global search initialized');
+    } else {
+        console.warn('⚠️ GlobalSearch component not loaded');
     }
 
     // Monitor online/offline status

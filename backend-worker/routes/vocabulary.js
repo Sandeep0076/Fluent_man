@@ -15,12 +15,18 @@ router.get('/', async (c) => {
     const sort = c.req.query('sort')
     const search = c.req.query('search')
     const category_id = c.req.query('category_id')
+    const exclude_category_id = c.req.query('exclude_category_id')
 
     let query = supabase.from('vocabulary').select('*');
 
     // Add category filter
     if (category_id && category_id !== 'all') {
       query = query.eq('category_id', category_id);
+    }
+
+    // Add exclude category filter
+    if (exclude_category_id && !category_id) {
+      query = query.or(`category_id.is.null,category_id.neq.${exclude_category_id}`);
     }
 
     // Add search filter
@@ -245,6 +251,116 @@ router.post('/', async (c) => {
     return c.json({
       success: false,
       error: 'Failed to add vocabulary word'
+    }, 500);
+  }
+});
+
+/**
+ * PUT /api/vocabulary/:id
+ * Update a vocabulary word
+ */
+router.put('/:id', async (c) => {
+  try {
+    const supabase = getSupabaseClient(c.env);
+    const id = c.req.param('id');
+    const { word, meaning, category_id } = await c.req.json();
+
+    const updateData = {};
+
+    // Only validate and update word if provided
+    if (word !== undefined) {
+      if (!word || typeof word !== 'string' || word.trim().length === 0) {
+        return c.json({
+          success: false,
+          error: 'Valid word is required'
+        }, 400);
+      }
+      updateData.word = word.trim();
+    }
+
+    // Only update meaning if provided
+    if (meaning !== undefined) {
+      updateData.meaning = meaning?.trim() || null;
+    }
+
+    // Only update category_id if it's provided
+    if (category_id !== undefined) {
+      updateData.category_id = category_id || null;
+    }
+
+    // Ensure we have something to update
+    if (Object.keys(updateData).length === 0) {
+      return c.json({
+        success: false,
+        error: 'No fields to update'
+      }, 400);
+    }
+
+    const { data: updatedWord, error } = await supabase
+      .from('vocabulary')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return c.json({
+          success: false,
+          error: 'Vocabulary word not found'
+        }, 404);
+      }
+      throw error;
+    }
+
+    return c.json({
+      success: true,
+      data: updatedWord,
+      message: 'Vocabulary word updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating vocabulary word:', error);
+    return c.json({
+      success: false,
+      error: 'Failed to update vocabulary word'
+    }, 500);
+  }
+});
+
+/**
+ * GET /api/vocabulary/:id
+ * Get a single vocabulary word by ID
+ */
+router.get('/:id', async (c) => {
+  try {
+    const supabase = getSupabaseClient(c.env);
+    const id = c.req.param('id');
+    
+    const { data: word, error } = await supabase
+      .from('vocabulary')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return c.json({
+          success: false,
+          error: 'Vocabulary word not found'
+        }, 404);
+      }
+      throw error;
+    }
+
+    return c.json({
+      success: true,
+      data: word
+    });
+  } catch (error) {
+    console.error('Error fetching vocabulary word:', error);
+    return c.json({
+      success: false,
+      error: 'Failed to fetch vocabulary word'
     }, 500);
   }
 });

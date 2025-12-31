@@ -48,6 +48,16 @@ router.get('/', async (c) => {
 
     if (journalError) throw journalError;
 
+    // Search phrases table
+    const { data: phrasesResults, error: phrasesError } = await supabase
+      .from('custom_phrases')
+      .select('*')
+      .or(`english.ilike.%${searchTerm}%,german.ilike.%${searchTerm}%,example_english.ilike.%${searchTerm}%,example_german.ilike.%${searchTerm}%`)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (phrasesError) throw phrasesError;
+
     const journalSentences = [];
     if (journalResults) {
       journalResults.forEach(entry => {
@@ -80,9 +90,11 @@ router.get('/', async (c) => {
       data: {
         vocabulary: vocabResults || [],
         journal_sentences: journalSentences,
+        phrases: phrasesResults || [],
         counts: {
           vocabulary: vocabResults ? vocabResults.length : 0,
-          journal_sentences: journalSentences.length
+          journal_sentences: journalSentences.length,
+          phrases: phrasesResults ? phrasesResults.length : 0
         }
       }
     });

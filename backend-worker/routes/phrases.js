@@ -14,6 +14,7 @@ router.get('/', async (c) => {
   try {
     const supabase = getSupabaseClient(c.env);
     const category_id = c.req.query('category_id');
+    const exclude_category_id = c.req.query('exclude_category_id');
 
     let query = supabase
       .from('custom_phrases')
@@ -22,6 +23,11 @@ router.get('/', async (c) => {
     // Add category filter
     if (category_id && category_id !== 'all') {
       query = query.eq('category_id', category_id);
+    }
+
+    // Add exclude category filter (for excluding Done category from "All Phrases")
+    if (exclude_category_id) {
+      query = query.or(`category_id.is.null,category_id.neq.${exclude_category_id}`);
     }
 
     query = query.order('created_at', { ascending: false });
@@ -311,23 +317,6 @@ router.put('/:id', async (c) => {
     const id = c.req.param('id');
     const { english, german, meaning, example_english, example_german, category_id } = await c.req.json();
 
-    if (!english || !german) {
-      return c.json({
-        success: false,
-        error: 'Both English and German text are required'
-      }, 400);
-    }
-
-    const cleanEnglish = english.trim();
-    const cleanGerman = german.trim();
-
-    if (cleanEnglish.length === 0 || cleanGerman.length === 0) {
-      return c.json({
-        success: false,
-        error: 'English and German text cannot be empty'
-      }, 400);
-    }
-
     // Check if phrase exists
     const { data: existing, error: fetchError } = await supabase
       .from('custom_phrases')
@@ -345,33 +334,62 @@ router.put('/:id', async (c) => {
       throw fetchError;
     }
 
-    // Check for duplicates (excluding current phrase)
-    const { data: duplicate } = await supabase
-      .from('custom_phrases')
-      .select('*')
-      .neq('id', id)
-      .or(`english.ilike.${cleanEnglish},german.ilike.${cleanGerman}`)
-      .single();
+    // Build update object with only provided fields
+    const updateData = {};
+    
+    // If only category_id is being updated (e.g., marking as done)
+    if (category_id !== undefined && !english && !german) {
+      updateData.category_id = category_id;
+    } else {
+      // Full update requires both english and german
+      if (!english || !german) {
+        return c.json({
+          success: false,
+          error: 'Both English and German text are required for full update'
+        }, 400);
+      }
 
-    if (duplicate) {
-      return c.json({
-        success: false,
-        error: 'A phrase with this text already exists',
-        data: duplicate
-      }, 409);
+      const cleanEnglish = english.trim();
+      const cleanGerman = german.trim();
+
+      if (cleanEnglish.length === 0 || cleanGerman.length === 0) {
+        return c.json({
+          success: false,
+          error: 'English and German text cannot be empty'
+        }, 400);
+      }
+
+      // Check for duplicates (excluding current phrase)
+      const { data: duplicate } = await supabase
+        .from('custom_phrases')
+        .select('*')
+        .neq('id', id)
+        .or(`english.ilike.${cleanEnglish},german.ilike.${cleanGerman}`)
+        .single();
+
+      if (duplicate) {
+        return c.json({
+          success: false,
+          error: 'A phrase with this text already exists',
+          data: duplicate
+        }, 409);
+      }
+
+      updateData.english = cleanEnglish;
+      updateData.german = cleanGerman;
+      updateData.meaning = meaning || cleanEnglish;
+      updateData.example_english = example_english || `For example: ${cleanEnglish}`;
+      updateData.example_german = example_german || cleanGerman;
+      
+      if (category_id !== undefined) {
+        updateData.category_id = category_id;
+      }
     }
 
     // Update the phrase
     const { data: updatedPhrase, error } = await supabase
       .from('custom_phrases')
-      .update({
-        english: cleanEnglish,
-        german: cleanGerman,
-        meaning: meaning || cleanEnglish,
-        example_english: example_english || `For example: ${cleanEnglish}`,
-        example_german: example_german || cleanGerman,
-        category_id: category_id || null
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();

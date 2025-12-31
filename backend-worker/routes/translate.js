@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { translateToGerman, translateMultipleSentences, translateToEnglish } from '../services/translation.js'
+import { translateToGerman, translateMultipleSentences, translateToEnglish as translateToEnglishWithFallback } from '../services/translation.js'
 
 const router = new Hono()
 
@@ -85,7 +85,7 @@ router.post('/reverse', async (c) => {
       }, 400);
     }
 
-    const translatedText = await translateToEnglish(text, c.env);
+    const translatedText = await translateToEnglishWithFallback(text, c.env);
 
     return c.json({
       success: true,
