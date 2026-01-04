@@ -140,7 +140,8 @@ function navTo(viewId) {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     const btns = document.querySelectorAll('.nav-item');
     btns.forEach(btn => {
-        if (btn.getAttribute('onclick').includes(viewId)) {
+        const onclickAttr = btn.getAttribute('onclick');
+        if (onclickAttr && onclickAttr.includes(viewId)) {
             btn.classList.add('active');
         }
     });
