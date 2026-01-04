@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeutschTagebuch | Read Me</title>
+  <link rel="icon" type="image/png" href="assets/straw_hat_icon.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles/journey-map.css" />
+  <style>
+    :root { --ocean-deep:#1e3a5f; --ocean-mid:#2E5090; --ocean-light:#4A7BA7; --glass-bg: rgba(244,231,215,0.95); }
+    body {
+      margin: 0; min-height: 100vh; color: #2c1810; font-family: 'Outfit', sans-serif;
+      background: linear-gradient(180deg, var(--ocean-deep), var(--ocean-mid), var(--ocean-light));
+      background-image: url('assets/nautical_map_bg.png'); background-size: cover; background-attachment: fixed;
+    }
+    .container-card {
+      background: linear-gradient(135deg, rgba(245,239,224,0.95), rgba(244,231,215,0.9));
+      border: 3px solid #B8860B; box-shadow: 0 0 0 1px #D4925A, 8px 8px 0 rgba(139,105,20,0.25);
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+  <a href="index.html" class="inline-flex items-center gap-2 text-white/90 hover:text-white font-semibold mb-6">
+    <span>←</span><span>Back to App</span>
+  </a>
+
+  <main class="max-w-4xl mx-auto container-card rounded-3xl p-6 md:p-10">
+    <header class="mb-6">
+      <h1 class="text-3xl md:text-4xl font-black mb-2">DeutschTagebuch</h1>
+      <p class="text-slate-700 font-medium">Your daily German learning companion—pirate-themed and playful.</p>
+    </header>
+
+    <section class="space-y-6 text-slate-800">
+      <div>
+        <h2 class="text-xl font-extrabold">What is this app?</h2>
+        <p class="mt-1 leading-relaxed">
+          DeutschTagebuch is a daily German practice app. Write short logs, get AI translations, collect vocabulary,
+          and track progress across a 30‑day nautical journey. The One Piece vibe keeps it fun and motivating.
+        </p>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-extrabold">Main areas</h2>
+        <ul class="mt-2 grid md:grid-cols-2 gap-3 list-none p-0">
+          <li class="p-4 rounded-xl bg-white/60 border border-amber-900/30">
+            <strong>Captain’s Deck</strong> — Your dashboard with streaks, stats, and the journey map.
+          </li>
+          <li class="p-4 rounded-xl bg-white/60 border border-amber-900/30">
+            <strong>Logbook</strong> — Daily journal. Write in English, translate to German, and refine.
+          </li>
+          <li class="p-4 rounded-xl bg-white/60 border border-amber-900/30">
+            <strong>Crew Chants</strong> — Helpful phrases. Add new ones directly from your writing.
+          </li>
+          <li class="p-4 rounded-xl bg-white/60 border border-amber-900/30">
+            <strong>Ship Notes</strong> — Personal notes and tips you want to remember.
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-extrabold">How it helps</h2>
+        <ul class="mt-2 list-disc pl-6 space-y-1">
+          <li>Practice writing daily with a lightweight, bullet‑style flow.</li>
+          <li>Get quick AI translations (English ↔ German) to learn naturally.</li>
+          <li>Tap German words to save them as phrases for later review.</li>
+          <li>Watch your progress grow on the 30‑day journey map.</li>
+        </ul>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-extrabold">Where your data lives</h2>
+        <p class="mt-1 leading-relaxed">
+          Data is stored in your connected Supabase project for persistence. On your device, the UI caches some
+          state for a smoother experience. You can export or import your data from the app’s Data section.
+        </p>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-extrabold">Tips for getting started</h2>
+        <ol class="mt-2 list-decimal pl-6 space-y-1">
+          <li>Open the Logbook and write 3–5 short bullets in English.</li>
+          <li>Translate and edit the German version to match your style.</li>
+          <li>Tap any interesting German word to add it to Crew Chants.</li>
+          <li>Check Captain’s Deck to see your streak and map progress.</li>
+        </ol>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-extrabold">Questions or feedback</h2>
+        <p class="mt-1 leading-relaxed">
+          This is a personal learning tool. Feel free to tweak the theme, wording, or flow to fit your vibe.
+        </p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

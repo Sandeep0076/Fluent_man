@@ -501,7 +501,7 @@ function updateGermanDisplay(text, container) {
 }
 
 async function addWordFromJournal(germanWord) {
-    if (!confirm(`Add "${germanWord}" to Brook's Songs (phrases)?`)) return;
+    if (!confirm(`Add "${germanWord}" to Crew Chants (phrases)?`)) return;
 
     try {
         console.log(`Adding word "${germanWord}" to phrases...`);
@@ -524,12 +524,12 @@ async function addWordFromJournal(germanWord) {
             })
         });
 
-        console.log(`Successfully added "${germanWord}" (${englishMeaning}) to Brook's Songs!`);
+    console.log(`Successfully added "${germanWord}" (${englishMeaning}) to Crew Chants!`);
 
         // Show success
         const feedback = document.getElementById('feedback-area');
         feedback.classList.remove('hidden');
-        feedback.querySelector('span').innerHTML = `🎵 Added "<b>${germanWord}</b>" → "<i>${englishMeaning}</i>" to Brook's Songs with examples!`;
+    feedback.querySelector('span').innerHTML = `🎵 Added "<b>${germanWord}</b>" → "<i>${englishMeaning}</i>" to Crew Chants with examples!`;
 
         // Refresh phrases if on that page
         if (state.currentView === 'phrases') loadPhrases();
@@ -1790,10 +1790,10 @@ function navigateToPrevious() {
 
 function getViewDisplayName(viewId) {
     const displayNames = {
-        'dashboard': "Captain's Log",
-        'journal': "Zoro's Training",
-        'phrases': "Brook's Songs",
-        'motivation': "Sanji's Notes"
+    'dashboard': 'Captain’s Deck',
+    'journal': 'Logbook',
+    'phrases': 'Crew Chants',
+    'motivation': 'Ship Notes'
     };
     return displayNames[viewId] || viewId;
 }

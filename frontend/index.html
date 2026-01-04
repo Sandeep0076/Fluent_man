@@ -841,20 +841,24 @@
             
             <button onclick="navTo('dashboard')" class="nav-item active flex items-center gap-4 px-4 py-4">
                 <span class="text-2xl icon">🏴‍☠️</span>
-                <span>Captain's Log</span>
+                <span>Captain’s Deck</span>
             </button>
             <button onclick="navTo('journal')" class="nav-item flex items-center gap-4 px-4 py-4">
                 <span class="text-2xl icon">🗡️</span>
-                <span>Zoro's Training</span>
+                <span>Logbook</span>
             </button>
             <button onclick="navTo('phrases')" class="nav-item flex items-center gap-4 px-4 py-4">
                 <span class="text-2xl icon">📢</span>
-                <span>Brook's Songs</span>
+                <span>Crew Chants</span>
             </button>
             <button onclick="navTo('motivation')" class="nav-item flex items-center gap-4 px-4 py-4">
                 <span class="text-2xl icon">🍖</span>
-                <span>Meat & Tips</span>
+                <span>Ship Notes</span>
             </button>
+            <a href="about.html" class="nav-item flex items-center gap-4 px-4 py-4">
+                <span class="text-2xl icon">📘</span>
+                <span>Read Me</span>
+            </a>
         </div>
 
         <!-- Treasure Chest Timer Widget -->
@@ -911,7 +915,7 @@
                 style="background: linear-gradient(135deg, rgba(139, 105, 20, 0.3), rgba(101, 67, 33, 0.5)); border: 2px solid var(--bronze-dark);">
                 <span class="relative z-10 flex items-center gap-3">
                     <span class="text-2xl">🏴‍☠️</span>
-                    Captain's Log
+                    Captain’s Deck
                 </span>
                 <div class="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/20 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
             </button>
@@ -921,7 +925,7 @@
                 style="background: linear-gradient(135deg, rgba(139, 105, 20, 0.3), rgba(101, 67, 33, 0.5)); border: 2px solid var(--bronze-dark);">
                 <span class="relative z-10 flex items-center gap-3">
                     <span class="text-2xl">🗡️</span>
-                    Zoro's Training
+                    Logbook
                 </span>
                 <div class="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/20 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
             </button>
@@ -931,7 +935,7 @@
                 style="background: linear-gradient(135deg, rgba(139, 105, 20, 0.3), rgba(101, 67, 33, 0.5)); border: 2px solid var(--bronze-dark);">
                 <span class="relative z-10 flex items-center gap-3">
                     <span class="text-2xl">📢</span>
-                    Brook's Songs
+                    Crew Chants
                 </span>
                 <div class="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/20 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
             </button>
@@ -941,10 +945,20 @@
                 style="background: linear-gradient(135deg, rgba(139, 105, 20, 0.3), rgba(101, 67, 33, 0.5)); border: 2px solid var(--bronze-dark);">
                 <span class="relative z-10 flex items-center gap-3">
                     <span class="text-2xl">🍖</span>
-                    Meat & Tips
+                    Ship Notes
                 </span>
                 <div class="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/20 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
             </button>
+
+            <a href="about.html"
+                class="p-4 text-left rounded-xl text-lg transition-all font-bold text-amber-100 hover:text-white relative overflow-hidden group"
+                style="background: linear-gradient(135deg, rgba(139, 105, 20, 0.3), rgba(101, 67, 33, 0.5)); border: 2px solid var(--bronze-dark);">
+                <span class="relative z-10 flex items-center gap-3">
+                    <span class="text-2xl">📘</span>
+                    Read Me
+                </span>
+                <div class="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/20 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+            </a>
             
             <!-- Decorative compass at bottom -->
             <div class="mt-auto pt-6 text-center opacity-30 text-6xl">☸</div>
@@ -1009,8 +1023,8 @@
                     </div>
                     <div class="relative z-10">
                         <div class="text-[10px] sm:text-xs font-black uppercase tracking-wider" style="color: var(--bronze-dark);">Current Streak</div>
-                        <div class="text-3xl sm:text-4xl font-black op-title"
-                             style="background: linear-gradient(135deg, var(--bronze-light) 0%, var(--copper) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.2));">
+                    <div class="text-3xl sm:text-4xl font-black op-title"
+                        style="background: linear-gradient(135deg, var(--bronze-light) 0%, var(--copper) 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.2));">
                             3 Days
                         </div>
                         <div class="text-[10px] sm:text-xs font-bold" style="color: var(--text-secondary);">Best: 12 Days</div>
@@ -1031,15 +1045,15 @@
             <!-- Stats Row -->
             <div class="grid grid-cols-3 gap-4 mb-6">
                 <div class="text-center p-3 rounded-xl glass-card" style="border: 2px solid var(--bronze-dark);">
-                    <div class="text-2xl font-black op-title" style="background: linear-gradient(135deg, var(--bronze-light), var(--copper)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;" id="stat-vocab-count">0</div>
+                    <div class="text-2xl font-black op-title" style="background: linear-gradient(135deg, var(--bronze-light), var(--copper)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;" id="stat-vocab-count">0</div>
                     <div class="text-xs font-bold" style="color: var(--text-secondary);">Words Learned</div>
                 </div>
                 <div class="text-center p-3 rounded-xl glass-card" style="border: 2px solid var(--bronze-dark);">
-                    <div class="text-2xl font-black op-title" style="background: linear-gradient(135deg, var(--bronze-light), var(--copper)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;" id="stat-vocab-new">0</div>
+                    <div class="text-2xl font-black op-title" style="background: linear-gradient(135deg, var(--bronze-light), var(--copper)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;" id="stat-vocab-new">0</div>
                     <div class="text-xs font-bold" style="color: var(--text-secondary);">This Week</div>
                 </div>
                 <div class="text-center p-3 rounded-xl glass-card" style="border: 2px solid var(--bronze-dark);">
-                    <div class="text-2xl font-black op-title" style="background: linear-gradient(135deg, var(--bronze-light), var(--copper)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;" id="stat-entries">0</div>
+                    <div class="text-2xl font-black op-title" style="background: linear-gradient(135deg, var(--bronze-light), var(--copper)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;" id="stat-entries">0</div>
                     <div class="text-xs font-bold" style="color: var(--text-secondary);">Entries</div>
                 </div>
             </div>
@@ -1220,7 +1234,7 @@
                 <div class="absolute top-2 right-2 text-4xl opacity-10 pointer-events-none">📢</div>
                 <div class="flex justify-between items-center">
                     <div>
-                        <h2 class="text-4xl font-black mb-2 compass-accent op-font" style="color: var(--ship-wood);">Brook's Songs</h2>
+                        <h2 class="text-4xl font-black mb-2 compass-accent op-font" style="color: var(--ship-wood);">Crew Chants</h2>
                         <p class="text-lg font-bold" style="color: var(--text-secondary);">Master the patterns of speech. Yo-ho-ho!</p>
                     </div>
                     <button id="toggle-add-phrase-btn" onclick="toggleAddPhraseSection()"
