@@ -367,36 +367,10 @@ class JourneyMap {
    * Create stats footer
    */
   createStatsFooter() {
+    // Stats footer removed - no longer displaying the four stat blocks
     const footer = document.createElement('div');
     footer.className = 'journey-stats-footer';
-    
-    const activity = this.journeyData.today_activity || {};
-    const nextMilestone = this.journeyData.next_milestone;
-    const daysUntil = this.journeyData.days_until_milestone;
-    
-    footer.innerHTML = `
-      <div class="stat-card">
-        <div class="stat-icon">⏱️</div>
-        <div class="stat-value">${activity.minutes_practiced || 0}</div>
-        <div class="stat-label">Minutes Today</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">✍️</div>
-        <div class="stat-value">${activity.journal_entries_count || 0}</div>
-        <div class="stat-label">Entries Today</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">📚</div>
-        <div class="stat-value">${activity.vocabulary_added_count || 0}</div>
-        <div class="stat-label">Words Today</div>
-      </div>
-      <div class="stat-card highlight">
-        <div class="stat-icon">🎯</div>
-        <div class="stat-value">Day ${nextMilestone}</div>
-        <div class="stat-label">${daysUntil} days to milestone</div>
-      </div>
-    `;
-    
+    footer.style.display = 'none';
     return footer;
   }
 
@@ -406,9 +380,23 @@ class JourneyMap {
   async handleWaypointClick(day) {
     if (day !== this.journeyData.current_day) return;
     
+    // Check if all daily tasks are completed
+    try {
+      const tasksResponse = await fetch(`${this.apiBase}/daily-tasks/progress`);
+      const tasksData = await tasksResponse.json();
+      
+      if (tasksData.success && !tasksData.data.all_completed) {
+        this.showNotification('⚡ Complete all 6 daily tasks before advancing to the next day!', 'warning');
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking daily tasks:', error);
+      // Continue with old logic if daily tasks check fails
+    }
+    
     const activity = this.journeyData.today_activity || {};
-    const canComplete = activity.minutes_practiced >= 10 || 
-                        activity.journal_entries_count >= 1 || 
+    const canComplete = activity.minutes_practiced >= 10 ||
+                        activity.journal_entries_count >= 1 ||
                         activity.vocabulary_added_count >= 5;
     
     if (!canComplete) {

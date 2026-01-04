@@ -25,7 +25,12 @@ const state = {
     touchStartX: 0,
     touchStartY: 0,
     touchEndX: 0,
-    touchEndY: 0
+    touchEndY: 0,
+    // Daily tasks state
+    dailyTasks: [],
+    activeTaskId: null,
+    taskTimerInterval: null,
+    taskRemainingSeconds: 0
 };
 
 // Navigation order for swipe gestures
@@ -352,11 +357,6 @@ async function loadDashboard() {
         const vocabStats = await apiCall('/vocabulary/stats');
         const activeDays = await apiCall('/progress/active-days');
 
-        // Update UI
-        document.getElementById('stat-vocab-count').innerText = stats.data.vocabulary.total;
-        document.getElementById('stat-vocab-new').innerText = stats.data.vocabulary.thisWeek;
-        document.getElementById('stat-entries').innerText = stats.data.entries.total;
-
         // Update user level based on active days
         const levelElement = document.getElementById('user-level');
         if (levelElement && activeDays.data) {
@@ -366,17 +366,20 @@ async function loadDashboard() {
         }
 
         // Update streak
-        const streakEl = document.querySelector('#dashboard .text-4xl.font-bold.text-amber-600');
+        const streakEl = document.querySelector('#dashboard .text-3xl.sm\\:text-4xl.font-black.op-title');
         if (streakEl) {
             streakEl.innerHTML = `${streak.data.current} Day${streak.data.current !== 1 ? 's' : ''}`;
         }
-        const bestStreakEl = streakEl?.nextElementSibling;
+        const bestStreakEl = streakEl?.parentElement?.querySelector('.text-\\[10px\\].sm\\:text-xs.font-bold');
         if (bestStreakEl) {
-            bestStreakEl.innerHTML = `Personal Best: ${streak.data.longest} Days`;
+            bestStreakEl.innerHTML = `Best: ${streak.data.longest} Days`;
         }
 
         // Display word of the day
         displayWordOfTheDay();
+
+        // Load daily tasks
+        await loadDailyTasks();
 
         // Initialize journey map if not already initialized
         if (!state.journeyMap) {
@@ -384,8 +387,290 @@ async function loadDashboard() {
         }
     } catch (error) {
         console.error('Error loading dashboard:', error);
-        document.getElementById('user-level').innerText = 'lvl 0';
+        if (document.getElementById('user-level')) {
+            document.getElementById('user-level').innerText = 'lvl 0';
+        }
     }
+}
+
+// --- DAILY TASKS SYSTEM ---
+
+/**
+ * Load daily tasks and render them
+ */
+async function loadDailyTasks() {
+    try {
+        console.log('📋 Loading daily tasks...');
+        const result = await apiCall('/daily-tasks');
+        
+        if (result.success) {
+            state.dailyTasks = result.data.tasks;
+            renderDailyTasks(result.data);
+            
+            // Check for midnight reset
+            checkDayReset();
+        }
+    } catch (error) {
+        console.error('Error loading daily tasks:', error);
+        const container = document.getElementById('daily-tasks-container');
+        if (container) {
+            container.innerHTML = `
+                <div class="col-span-full text-center py-8 opacity-50">
+                    <div class="text-3xl mb-2">⚠️</div>
+                    <div class="text-sm font-bold" style="color: var(--text-secondary);">Failed to load tasks</div>
+                </div>
+            `;
+        }
+    }
+}
+
+/**
+ * Render daily tasks in the UI
+ */
+function renderDailyTasks(data) {
+    const container = document.getElementById('daily-tasks-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    data.tasks.forEach(task => {
+        const taskBlock = document.createElement('div');
+        taskBlock.className = 'daily-task-block text-center';
+        taskBlock.dataset.taskId = task.id;
+        taskBlock.dataset.duration = task.duration_minutes;
+        
+        // Add state classes
+        if (task.completed) {
+            taskBlock.classList.add('task-completed');
+        } else if (task.in_progress) {
+            taskBlock.classList.add('task-in-progress');
+        }
+        
+        // Determine status text
+        let statusText = 'Click to start';
+        if (task.completed) {
+            statusText = 'Completed!';
+        } else if (task.in_progress) {
+            statusText = 'In progress...';
+        }
+        
+        taskBlock.innerHTML = `
+            <div class="task-icon">${task.icon}</div>
+            <div class="task-name">${task.name}</div>
+            <div class="task-timer">${task.duration_minutes}:00</div>
+            <div class="task-status">${statusText}</div>
+        `;
+        
+        // Add click handler only if not completed
+        if (!task.completed) {
+            taskBlock.onclick = () => startDailyTask(task.id, task.duration_minutes);
+        }
+        
+        container.appendChild(taskBlock);
+    });
+    
+    // Show completion message if all tasks done
+    if (data.all_completed) {
+        showAllTasksCompletedMessage();
+    }
+}
+
+/**
+ * Start a daily task timer
+ */
+async function startDailyTask(taskId, durationMinutes) {
+    // Prevent starting if another task is active
+    if (state.activeTaskId !== null) {
+        alert('Please complete the current task before starting another one!');
+        return;
+    }
+    
+    // Find the task
+    const task = state.dailyTasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    // Check if already completed
+    if (task.completed) {
+        return;
+    }
+    
+    try {
+        // Call API to start the task
+        const result = await apiCall(`/daily-tasks/${taskId}/start`, {
+            method: 'POST'
+        });
+        
+        if (!result.success) {
+            alert(result.error || 'Failed to start task');
+            return;
+        }
+        
+        // Set active task
+        state.activeTaskId = taskId;
+        state.taskRemainingSeconds = durationMinutes * 60;
+        
+        // Update UI
+        const taskBlock = document.querySelector(`[data-task-id="${taskId}"]`);
+        if (taskBlock) {
+            taskBlock.classList.add('task-in-progress');
+            taskBlock.querySelector('.task-status').textContent = 'In progress...';
+        }
+        
+        // Start countdown timer
+        startTaskTimer(taskId, durationMinutes);
+        
+    } catch (error) {
+        console.error('Error starting task:', error);
+        alert('Failed to start task: ' + error.message);
+    }
+}
+
+/**
+ * Start the countdown timer for a task
+ */
+function startTaskTimer(taskId, durationMinutes) {
+    // Clear any existing timer
+    if (state.taskTimerInterval) {
+        clearInterval(state.taskTimerInterval);
+    }
+    
+    state.taskTimerInterval = setInterval(() => {
+        state.taskRemainingSeconds--;
+        
+        // Update timer display
+        const taskBlock = document.querySelector(`[data-task-id="${taskId}"]`);
+        if (taskBlock) {
+            const minutes = Math.floor(state.taskRemainingSeconds / 60);
+            const seconds = state.taskRemainingSeconds % 60;
+            const timerDisplay = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            taskBlock.querySelector('.task-timer').textContent = timerDisplay;
+        }
+        
+        // Check if timer finished
+        if (state.taskRemainingSeconds <= 0) {
+            clearInterval(state.taskTimerInterval);
+            state.taskTimerInterval = null;
+            completeDailyTask(taskId);
+        }
+    }, 1000);
+}
+
+/**
+ * Complete a daily task
+ */
+async function completeDailyTask(taskId) {
+    try {
+        // Call API to mark task as complete
+        const result = await apiCall(`/daily-tasks/${taskId}/complete`, {
+            method: 'POST'
+        });
+        
+        if (!result.success) {
+            alert(result.error || 'Failed to complete task');
+            return;
+        }
+        
+        // Update state
+        state.activeTaskId = null;
+        const task = state.dailyTasks.find(t => t.id === taskId);
+        if (task) {
+            task.completed = true;
+            task.in_progress = false;
+        }
+        
+        // Update UI
+        const taskBlock = document.querySelector(`[data-task-id="${taskId}"]`);
+        if (taskBlock) {
+            taskBlock.classList.remove('task-in-progress');
+            taskBlock.classList.add('task-completed');
+            taskBlock.querySelector('.task-status').textContent = 'Completed!';
+            taskBlock.onclick = null; // Remove click handler
+        }
+        
+        // Show congratulations message
+        showTaskCompletedMessage(task.name);
+        
+        // Check if all tasks are completed
+        if (result.data.all_tasks_completed) {
+            setTimeout(() => {
+                showAllTasksCompletedMessage();
+                // Refresh journey map to advance day
+                if (state.journeyMap) {
+                    state.journeyMap.refresh();
+                }
+            }, 2000);
+        }
+        
+    } catch (error) {
+        console.error('Error completing task:', error);
+        alert('Failed to complete task: ' + error.message);
+    }
+}
+
+/**
+ * Show task completed message
+ */
+function showTaskCompletedMessage(taskName) {
+    const message = document.createElement('div');
+    message.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 glass-card px-8 py-4 rounded-2xl z-50 animate-bounce-in';
+    message.style.cssText = 'border: 3px solid var(--gold-accent); box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);';
+    message.innerHTML = `
+        <div class="text-center">
+            <div class="text-4xl mb-2">🎉</div>
+            <div class="text-lg font-black op-font" style="color: var(--ship-wood);">Task Complete!</div>
+            <div class="text-sm font-bold" style="color: var(--text-secondary);">${taskName}</div>
+        </div>
+    `;
+    
+    document.body.appendChild(message);
+    
+    setTimeout(() => {
+        message.style.opacity = '0';
+        message.style.transition = 'opacity 0.3s ease-out';
+        setTimeout(() => message.remove(), 300);
+    }, 3000);
+}
+
+/**
+ * Show all tasks completed message
+ */
+function showAllTasksCompletedMessage() {
+    const message = document.createElement('div');
+    message.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4';
+    message.innerHTML = `
+        <div class="glass-card p-8 rounded-3xl max-w-md text-center animate-bounce-in"
+             style="border: 4px solid var(--gold-accent); box-shadow: 0 0 30px rgba(255, 215, 0, 0.6);">
+            <div class="text-6xl mb-4">🏆</div>
+            <h2 class="text-3xl font-black op-title mb-3" style="color: var(--ship-wood);">
+                Daily Goal Achieved!
+            </h2>
+            <p class="text-lg font-bold mb-6" style="color: var(--text-secondary);">
+                You've completed all 6 tasks! The journey continues... 🚢
+            </p>
+            <button onclick="this.closest('.fixed').remove()"
+                    class="px-8 py-3 rounded-xl font-black op-font text-white transition-all transform hover:scale-105"
+                    style="background: linear-gradient(135deg, var(--ocean-mid), var(--ocean-deep)); border: 3px solid var(--bronze-dark);">
+                Continue Adventure
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(message);
+}
+
+/**
+ * Check if a new day has started and reset tasks
+ */
+function checkDayReset() {
+    const lastCheckDate = localStorage.getItem('last_task_check_date');
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (lastCheckDate && lastCheckDate !== today) {
+        console.log('🌅 New day detected! Tasks will be reset.');
+        // Tasks are already reset on the server side, just update local storage
+    }
+    
+    localStorage.setItem('last_task_check_date', today);
 }
 
 // --- BULLET POINT MANAGEMENT ---
