@@ -157,7 +157,10 @@ function navTo(viewId) {
         loadPhraseCategories();
         loadPhrases();
     }
-    if (viewId === 'motivation') loadNotes();
+    if (viewId === 'motivation') {
+        loadNoteCategories();
+        loadNotes();
+    }
 }
 
 function toggleMobileMenu() {
@@ -1379,6 +1382,8 @@ async function updatePhrase() {
 
 // --- NOTES (formerly MOTIVATION) ---
 let editingNoteId = null;
+let selectedNoteCategoryId = 'all';
+let noteCategories = [];
 
 // Helper function to make URLs clickable in text
 function linkifyUrls(text) {
@@ -1428,10 +1433,145 @@ function toggleAddNote() {
     }
 }
 
+async function loadNoteCategories() {
+    try {
+        const result = await apiCall('/notes/categories');
+        noteCategories = result.data;
+        renderNoteCategories();
+        updateNoteCategorySelects();
+    } catch (error) {
+        console.error('Error loading note categories:', error);
+    }
+}
+
+function renderNoteCategories() {
+    const container = document.getElementById('note-category-list');
+    if (!container) return;
+
+    // Keep "All Notes" button
+    container.innerHTML = `
+        <button onclick="selectNoteCategory('all')" id="note-cat-all"
+            class="w-full text-left px-4 py-3 rounded-xl transition-all font-medium ${selectedNoteCategoryId === 'all' ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-white/50 text-slate-600 hover:bg-white hover:shadow-sm'}">
+            📁 All Notes
+        </button>
+    `;
+
+    noteCategories.forEach(cat => {
+        const isActive = selectedNoteCategoryId == cat.id;
+        const btn = document.createElement('button');
+        btn.onclick = () => selectNoteCategory(cat.id);
+        btn.id = `note-cat-${cat.id}`;
+        btn.className = `w-full text-left px-4 py-3 rounded-xl transition-all font-medium flex justify-between items-center group ${isActive ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-white/50 text-slate-600 hover:bg-white hover:shadow-sm'}`;
+
+        btn.innerHTML = `
+            <span>📁 ${cat.name}</span>
+            <span onclick="deleteNoteCategory(event, ${cat.id})" class="opacity-0 group-hover:opacity-100 text-xs bg-red-400 hover:bg-red-500 text-white p-1 rounded-md transition-all">✕</span>
+        `;
+        container.appendChild(btn);
+    });
+}
+
+function updateNoteCategorySelects() {
+    const selects = ['new-note-category', 'edit-note-category'];
+    
+    selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        const currentVal = select.value;
+        select.innerHTML = '<option value="">No Category</option>';
+
+        noteCategories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.id;
+            option.textContent = cat.name;
+            select.appendChild(option);
+        });
+
+        select.value = currentVal;
+    });
+}
+
+function selectNoteCategory(id) {
+    selectedNoteCategoryId = id;
+    renderNoteCategories();
+    loadNotes();
+}
+
+function showAddNoteCategoryModal() {
+    const modal = document.getElementById('add-note-category-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.getElementById('new-note-category-name').focus();
+}
+
+function hideAddNoteCategoryModal() {
+    const modal = document.getElementById('add-note-category-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    document.getElementById('new-note-category-name').value = '';
+}
+
+async function addNoteCategory() {
+    const nameInput = document.getElementById('new-note-category-name');
+    const name = nameInput.value.trim();
+
+    if (!name) {
+        alert('Please enter a category name!');
+        return;
+    }
+
+    try {
+        await apiCall('/notes/categories', {
+            method: 'POST',
+            body: JSON.stringify({ name })
+        });
+
+        hideAddNoteCategoryModal();
+        await loadNoteCategories();
+
+        // Show success feedback
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[110] animate-fade-in';
+        successMsg.innerHTML = '✓ Category created successfully!';
+        document.body.appendChild(successMsg);
+        setTimeout(() => successMsg.remove(), 3000);
+
+    } catch (error) {
+        alert('Failed to add category: ' + error.message);
+    }
+}
+
+async function deleteNoteCategory(event, id) {
+    event.stopPropagation();
+    if (!confirm('Are you sure you want to delete this category? Notes inside will not be deleted but will no longer have a category.')) return;
+
+    try {
+        await apiCall(`/notes/categories/${id}`, { method: 'DELETE' });
+
+        if (selectedNoteCategoryId == id) {
+            selectedNoteCategoryId = 'all';
+        }
+
+        await loadNoteCategories();
+        await loadNotes();
+    } catch (error) {
+        alert('Failed to delete category: ' + error.message);
+    }
+}
+
 async function loadNotes() {
     try {
         const sortMode = document.getElementById('notes-sort').value;
-        const result = await apiCall(`/notes?sort=${sortMode}`);
+        
+        // If viewing "All Notes", show all notes
+        // If viewing a specific category, show only that category
+        let categoryParam = '';
+        if (selectedNoteCategoryId && selectedNoteCategoryId !== 'all') {
+            categoryParam = `&category_id=${selectedNoteCategoryId}`;
+        }
+        
+        const result = await apiCall(`/notes?sort=${sortMode}${categoryParam}`);
         renderNotes(result.data);
     } catch (error) {
         console.error('Error loading notes:', error);
@@ -1476,9 +1616,11 @@ function renderNotes(notes) {
 async function addNote() {
     const titleInput = document.getElementById('new-note-title');
     const contentInput = document.getElementById('new-note-content');
+    const categorySelect = document.getElementById('new-note-category');
 
     const title = titleInput.value.trim();
     const content = contentInput.value.trim();
+    const category_id = categorySelect ? categorySelect.value : '';
 
     if (!title) {
         alert('Please enter a note title!');
@@ -1491,11 +1633,16 @@ async function addNote() {
     }
 
     try {
+        const payload = { title, content };
+        if (category_id) {
+            payload.category_id = category_id;
+        }
+
         if (editingNoteId) {
             // Update existing note
             await apiCall(`/notes/${editingNoteId}`, {
                 method: 'PUT',
-                body: JSON.stringify({ title, content })
+                body: JSON.stringify(payload)
             });
             editingNoteId = null;
 
@@ -1506,13 +1653,14 @@ async function addNote() {
             // Create new note
             await apiCall('/notes', {
                 method: 'POST',
-                body: JSON.stringify({ title, content })
+                body: JSON.stringify(payload)
             });
         }
 
         // Clear inputs
         titleInput.value = '';
         contentInput.value = '';
+        if (categorySelect) categorySelect.value = '';
 
         // Hide section and reset button
         const section = document.getElementById('add-note-section');
@@ -1545,6 +1693,10 @@ async function editNote(id) {
 
         document.getElementById('new-note-title').value = note.title;
         document.getElementById('new-note-content').value = note.content;
+        const categorySelect = document.getElementById('new-note-category');
+        if (categorySelect) {
+            categorySelect.value = note.category_id || '';
+        }
 
         editingNoteId = id;
 

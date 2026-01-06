@@ -1350,39 +1350,89 @@
                 </div>
             </header>
 
-            <!-- Add Note Section -->
-            <div id="add-note-section" class="hidden glass-card p-3 sm:p-6 rounded-[24px] !bg-white/60 mb-8 animate-fade-in">
-                <h3 class="font-bold text-lg text-slate-800 mb-4">Add New Note</h3>
-                <div class="flex flex-col gap-3">
-                    <input type="text" id="new-note-title" placeholder="Note title..."
-                        class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all placeholder-slate-300">
-                    <textarea id="new-note-content" placeholder="Note content..." rows="3"
-                        class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all placeholder-slate-300 resize-none"></textarea>
-                    <div class="flex gap-3">
-                        <button onclick="addNote()"
-                            class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-200 hover:shadow-xl">
-                            + Add Note
-                        </button>
-                        <button onclick="toggleAddNote()"
-                            class="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition-all">
-                            Cancel
-                        </button>
+            <div class="flex flex-col lg:flex-row gap-6">
+                <!-- Main Column: Notes -->
+                <div class="flex-1 space-y-6">
+                    <!-- Add Note Section -->
+                    <div id="add-note-section" class="hidden glass-card p-3 sm:p-6 rounded-[24px] !bg-white/60 animate-fade-in">
+                        <h3 class="font-bold text-lg text-slate-800 mb-4">Add New Note</h3>
+                        <div class="flex flex-col gap-3">
+                            <input type="text" id="new-note-title" placeholder="Note title..."
+                                class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all placeholder-slate-300">
+                            <textarea id="new-note-content" placeholder="Note content..." rows="3"
+                                class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all placeholder-slate-300 resize-none"></textarea>
+                            <select id="new-note-category"
+                                class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 cursor-pointer">
+                                <option value="">No Category</option>
+                                <!-- Categories populated by JS -->
+                            </select>
+                            <div class="flex gap-3">
+                                <button onclick="addNote()"
+                                    class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-200 hover:shadow-xl">
+                                    + Add Note
+                                </button>
+                                <button onclick="toggleAddNote()"
+                                    class="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition-all">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notes Grid -->
+                    <div id="notes-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <div id="empty-notes-state"
+                        class="hidden flex flex-col items-center justify-center py-20 text-slate-400 opacity-60">
+                        <div class="text-6xl mb-4 grayscale opacity-50">📝</div>
+                        <h3 class="text-2xl font-bold">No notes yet</h3>
+                        <p>Add your first note to get started.</p>
+                    </div>
+                </div>
+
+                <!-- Right Column: Categories -->
+                <div class="w-full lg:w-80 flex flex-col gap-6">
+                    <div class="glass-card p-3 sm:p-6 rounded-[30px] !bg-white/60 h-full flex flex-col">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-lg text-slate-800">Categories</h3>
+                            <button onclick="showAddNoteCategoryModal()"
+                                class="w-8 h-8 flex items-center justify-center bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                                title="Add New Category">
+                                <span class="text-xl">+</span>
+                            </button>
+                        </div>
+
+                        <div id="note-category-list" class="flex-1 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+                            <button onclick="selectNoteCategory('all')" id="note-cat-all"
+                                class="w-full text-left px-4 py-3 rounded-xl bg-blue-600 text-white font-bold transition-all shadow-md">
+                                📁 All Notes
+                            </button>
+                            <!-- Populated by JS -->
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Notes Grid -->
-            <div id="notes-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Populated by JS -->
-            </div>
-
-            <div id="empty-notes-state"
-                class="hidden flex flex-col items-center justify-center py-20 text-slate-400 opacity-60">
-                <div class="text-6xl mb-4 grayscale opacity-50">📝</div>
-                <h3 class="text-2xl font-bold">No notes yet</h3>
-                <p>Add your first note to get started.</p>
-            </div>
         </section>
+
+        <!-- Add Note Category Modal -->
+        <div id="add-note-category-modal"
+            class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+            <div class="glass-card w-full max-w-sm p-8 bg-white/90" onclick="event.stopPropagation()">
+                <h3 class="text-2xl font-bold text-slate-800 mb-6">New Note Category</h3>
+                <input type="text" id="new-note-category-name" placeholder="Category name (e.g., Grammar)..."
+                    class="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 mb-6"
+                    onkeypress="if(event.key === 'Enter') addNoteCategory()">
+                <div class="flex gap-3">
+                    <button onclick="addNoteCategory()"
+                        class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-100">Create</button>
+                    <button onclick="hideAddNoteCategoryModal()"
+                        class="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancel</button>
+                </div>
+            </div>
+        </div>
 
     </main>
 
