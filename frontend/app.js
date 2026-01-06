@@ -27,7 +27,9 @@ const state = {
     dailyTasks: [],
     activeTaskId: null,
     taskTimerInterval: null,
-    taskRemainingSeconds: 0
+    taskRemainingSeconds: 0,
+    taskPaused: false,
+    pausedElapsedTime: 0
 };
 
 // Navigation order for swipe gestures
@@ -440,15 +442,34 @@ function renderDailyTasks(data) {
         if (task.completed) {
             taskBlock.classList.add('task-completed');
         } else if (task.in_progress) {
-            taskBlock.classList.add('task-in-progress');
+            if (state.activeTaskId === task.id && state.taskPaused) {
+                taskBlock.classList.add('task-paused');
+            } else {
+                taskBlock.classList.add('task-in-progress');
+            }
         }
         
-        // Determine status text
+        // Determine status text and click handler
         let statusText = 'Click to start';
+        let clickHandler = null;
+        
         if (task.completed) {
             statusText = 'Completed!';
+        } else if (task.in_progress && state.activeTaskId === task.id) {
+            // This is the currently active task
+            if (state.taskPaused) {
+                statusText = 'Click to resume';
+                clickHandler = () => resumeTask(task.id);
+            } else {
+                statusText = 'Click to pause';
+                clickHandler = () => pauseTask(task.id);
+            }
         } else if (task.in_progress) {
+            // Task is in progress but not the active one (shouldn't happen normally)
             statusText = 'In progress...';
+        } else {
+            // Task not started yet
+            clickHandler = () => startDailyTask(task.id, task.duration_minutes);
         }
         
         taskBlock.innerHTML = `
@@ -458,9 +479,12 @@ function renderDailyTasks(data) {
             <div class="task-status">${statusText}</div>
         `;
         
-        // Add click handler only if not completed
-        if (!task.completed) {
-            taskBlock.onclick = () => startDailyTask(task.id, task.duration_minutes);
+        // Add click handler
+        if (clickHandler) {
+            taskBlock.onclick = clickHandler;
+            taskBlock.style.cursor = 'pointer';
+        } else {
+            taskBlock.style.cursor = 'default';
         }
         
         container.appendChild(taskBlock);
@@ -506,6 +530,8 @@ async function startDailyTask(taskId, durationMinutes) {
         state.activeTaskId = taskId;
         state.taskRemainingSeconds = durationMinutes * 60;
         state.taskStartEpoch = Date.now();
+        state.taskPaused = false;
+        state.pausedElapsedTime = 0;
         try {
             localStorage.setItem('dt_activeTask', JSON.stringify({
                 taskId,
@@ -520,7 +546,7 @@ async function startDailyTask(taskId, durationMinutes) {
         const taskBlock = document.querySelector(`[data-task-id="${taskId}"]`);
         if (taskBlock) {
             taskBlock.classList.add('task-in-progress');
-            taskBlock.querySelector('.task-status').textContent = 'In progress...';
+            taskBlock.querySelector('.task-status').textContent = 'Click to pause';
         }
         
         // Start countdown timer
@@ -530,6 +556,78 @@ async function startDailyTask(taskId, durationMinutes) {
         console.error('Error starting task:', error);
         alert('Failed to start task: ' + error.message);
     }
+}
+
+/**
+ * Pause the current daily task timer
+ */
+function pauseTask(taskId) {
+    console.log('🔍 DEBUG: Pausing task', taskId);
+    
+    if (state.activeTaskId !== taskId || !state.taskTimerInterval) {
+        console.log('🔍 DEBUG: Cannot pause - no active timer for this task');
+        return;
+    }
+    
+    // Clear the timer interval
+    clearInterval(state.taskTimerInterval);
+    state.taskTimerInterval = null;
+    state.taskPaused = true;
+    
+    // Calculate and store elapsed time when paused
+    const now = Date.now();
+    const totalElapsed = Math.floor((now - state.taskStartEpoch) / 1000);
+    state.pausedElapsedTime = totalElapsed;
+    
+    console.log('🔍 DEBUG: Task paused, elapsed time:', totalElapsed, 'seconds');
+    
+    // Update localStorage to persist paused state
+    try {
+        const task = state.dailyTasks.find(t => t.id === taskId);
+        if (task) {
+            localStorage.setItem('dt_activeTask', JSON.stringify({
+                taskId,
+                startEpoch: state.taskStartEpoch,
+                totalSeconds: task.duration_minutes * 60,
+                paused: true,
+                pausedElapsedTime: state.pausedElapsedTime
+            }));
+        }
+    } catch (e) {
+        console.log('LocalStorage not available for pause persistence');
+    }
+    
+    // Re-render tasks to update UI and click handlers
+    renderDailyTasks({ tasks: state.dailyTasks, all_completed: false });
+}
+
+/**
+ * Resume the paused daily task timer
+ */
+function resumeTask(taskId) {
+    console.log('🔍 DEBUG: Resuming task', taskId);
+    
+    if (state.activeTaskId !== taskId || !state.taskPaused) {
+        console.log('🔍 DEBUG: Cannot resume - task not paused');
+        return;
+    }
+    
+    // Reset the start epoch to account for paused time
+    const now = Date.now();
+    state.taskStartEpoch = now - (state.pausedElapsedTime * 1000);
+    state.taskPaused = false;
+    
+    console.log('🔍 DEBUG: Task resumed, adjusting start epoch by', state.pausedElapsedTime, 'seconds');
+    
+    // Find the task to get duration
+    const task = state.dailyTasks.find(t => t.id === taskId);
+    if (task) {
+        // Restart the timer
+        startTaskTimer(taskId, task.duration_minutes);
+    }
+    
+    // Re-render tasks to update UI and click handlers
+    renderDailyTasks({ tasks: state.dailyTasks, all_completed: false });
 }
 
 /**
@@ -550,7 +648,9 @@ function startTaskTimer(taskId, durationMinutes) {
         localStorage.setItem('dt_activeTask', JSON.stringify({
             taskId,
             startEpoch: state.taskStartEpoch,
-            totalSeconds
+            totalSeconds,
+            paused: state.taskPaused || false,
+            pausedElapsedTime: state.pausedElapsedTime || 0
         }));
     } catch (e) {
         console.log('LocalStorage not available for task timer persistence');
@@ -599,6 +699,8 @@ async function completeDailyTask(taskId) {
         
         // Update state
         state.activeTaskId = null;
+        state.taskPaused = false;
+        state.pausedElapsedTime = 0;
         const task = state.dailyTasks.find(t => t.id === taskId);
         if (task) {
             task.completed = true;
@@ -1920,28 +2022,55 @@ window.onload = async function () {
     try {
         const persisted = localStorage.getItem('dt_activeTask');
         if (persisted) {
-            const { taskId, startEpoch, totalSeconds } = JSON.parse(persisted);
+            const { taskId, startEpoch, totalSeconds, paused, pausedElapsedTime } = JSON.parse(persisted);
             state.activeTaskId = taskId;
             state.taskStartEpoch = startEpoch;
-            const elapsed = Math.floor((Date.now() - startEpoch) / 1000);
+            state.taskPaused = paused || false;
+            state.pausedElapsedTime = pausedElapsedTime || 0;
+            
+            let elapsed;
+            if (state.taskPaused) {
+                // If task was paused, use the stored elapsed time
+                elapsed = state.pausedElapsedTime;
+            } else {
+                // If task was running, calculate elapsed time from start epoch
+                elapsed = Math.floor((Date.now() - startEpoch) / 1000);
+            }
+            
             state.taskRemainingSeconds = Math.max(totalSeconds - elapsed, 0);
+            
+            console.log('🔍 DEBUG: Restoring task', taskId, 'paused:', state.taskPaused, 'elapsed:', elapsed);
+            
             // Update UI state for the task block
             const taskBlock = document.querySelector(`[data-task-id="${taskId}"]`);
             if (taskBlock) {
-                taskBlock.classList.add('task-in-progress');
+                if (state.taskPaused) {
+                    taskBlock.classList.add('task-paused');
+                } else {
+                    taskBlock.classList.add('task-in-progress');
+                }
                 const minutes = Math.floor(state.taskRemainingSeconds / 60);
                 const seconds = state.taskRemainingSeconds % 60;
                 const timerDisplay = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
                 const timerEl = taskBlock.querySelector('.task-timer');
                 if (timerEl) timerEl.textContent = timerDisplay;
                 const statusEl = taskBlock.querySelector('.task-status');
-                if (statusEl) statusEl.textContent = 'In progress...';
+                if (statusEl) {
+                    if (state.taskPaused) {
+                        statusEl.textContent = 'Click to resume';
+                    } else {
+                        statusEl.textContent = 'Click to pause';
+                    }
+                }
             }
-            // Restart interval based on timestamp
-            startTaskTimer(taskId, Math.ceil(totalSeconds / 60));
+            
+            // Only restart timer if not paused
+            if (!state.taskPaused && state.taskRemainingSeconds > 0) {
+                startTaskTimer(taskId, Math.ceil(totalSeconds / 60));
+            }
         }
     } catch (e) {
-        // ignore
+        console.log('Error restoring active task:', e);
     }
 
     // Start global session timer
