@@ -6,18 +6,24 @@ const router = new Hono()
 /**
  * Helper function: Check if day completion criteria is met
  * Primary: 10+ minutes of practice time
- * Alternative: 5+ vocabulary words
+ * Alternative 1: 5+ vocabulary words
+ * Alternative 2: All 6 daily tasks completed
  */
 function isDayCompleted(activities) {
-  const { minutes_practiced, vocabulary_added_count } = activities;
+  const { minutes_practiced, vocabulary_added_count, daily_tasks_completed } = activities;
   
   // Primary criterion: 10+ minutes of practice time
   if (minutes_practiced >= 10) {
     return true;
   }
   
-  // Alternative: Significant activity without timer
+  // Alternative 1: Significant activity without timer
   if (vocabulary_added_count >= 5) {
+    return true;
+  }
+  
+  // Alternative 2: All daily tasks completed
+  if (daily_tasks_completed === true) {
     return true;
   }
   
@@ -184,10 +190,36 @@ router.post('/complete-day', async (c) => {
     }
 
     // Check if completion criteria is met
+    // First check if all daily tasks are completed
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { data: allTasks, error: tasksError } = await supabase
+      .from('daily_tasks')
+      .select('id');
+      
+    const { data: completedTasks, error: completedError } = await supabase
+      .from('daily_task_progress')
+      .select('*')
+      .eq('completion_date', today)
+      .not('completed_at', 'is', null);
+    
+    const allDailyTasksCompleted = allTasks && completedTasks && 
+                                   (completedTasks.length === allTasks.length) &&
+                                   allTasks.length > 0;
+    
     const activities = {
       minutes_practiced: minutesPracticed,
-      vocabulary_added_count: vocabularyAdded
+      vocabulary_added_count: vocabularyAdded,
+      daily_tasks_completed: allDailyTasksCompleted
     };
+    
+    console.log('[DEBUG] Journey completion check:', {
+      minutes_practiced: minutesPracticed,
+      vocabulary_added_count: vocabularyAdded,
+      daily_tasks_completed: allDailyTasksCompleted,
+      total_tasks: allTasks?.length,
+      completed_tasks: completedTasks?.length
+    });
     
     const dayComplete = isDayCompleted(activities);
 
@@ -511,9 +543,25 @@ router.post('/update-activity', async (c) => {
     const vocabularyAdded = (currentActivity?.vocabulary_added_count || 0) + (body.vocabulary_added || 0);
 
     // Check if day should be auto-completed
+    // First check if all daily tasks are completed
+    const { data: allTasks, error: tasksError } = await supabase
+      .from('daily_tasks')
+      .select('id');
+      
+    const { data: completedTasks, error: completedError } = await supabase
+      .from('daily_task_progress')
+      .select('*')
+      .eq('completion_date', today)
+      .not('completed_at', 'is', null);
+    
+    const allDailyTasksCompleted = allTasks && completedTasks && 
+                                   (completedTasks.length === allTasks.length) &&
+                                   allTasks.length > 0;
+    
     const activities = {
       minutes_practiced: minutesPracticed,
-      vocabulary_added_count: vocabularyAdded
+      vocabulary_added_count: vocabularyAdded,
+      daily_tasks_completed: allDailyTasksCompleted
     };
     
     const dayComplete = isDayCompleted(activities);
