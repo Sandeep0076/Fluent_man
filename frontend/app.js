@@ -542,12 +542,14 @@ async function startDailyTask(taskId, durationMinutes) {
             console.log('LocalStorage not available for task start persistence');
         }
         
-        // Update UI
-        const taskBlock = document.querySelector(`[data-task-id="${taskId}"]`);
-        if (taskBlock) {
-            taskBlock.classList.add('task-in-progress');
-            taskBlock.querySelector('.task-status').textContent = 'Click to pause';
+        // Update task state in memory
+        const task = state.dailyTasks.find(t => t.id === taskId);
+        if (task) {
+            task.in_progress = true;
         }
+        
+        // Re-render tasks to update UI and click handlers
+        renderDailyTasks({ tasks: state.dailyTasks, all_completed: false });
         
         // Start countdown timer
         startTaskTimer(taskId, durationMinutes);
@@ -957,6 +959,8 @@ console.log('🔍 DEBUG: toggleAddPhraseSection on window?', typeof window.toggl
 
 async function loadPhrases() {
     try {
+        const sortMode = document.getElementById('phrases-sort')?.value || 'newest';
+        
         // Get Done category ID
         const doneCategory = phraseCategories.find(cat => cat.name.toLowerCase() === 'done');
         const doneCategoryId = doneCategory ? doneCategory.id : null;
@@ -965,10 +969,12 @@ async function loadPhrases() {
         // If viewing a specific category, show only that category
         let categoryParam = '';
         if (selectedPhraseCategoryId && selectedPhraseCategoryId !== 'all') {
-            categoryParam = `?category_id=${selectedPhraseCategoryId}`;
+            categoryParam = `?category_id=${selectedPhraseCategoryId}&sort=${sortMode}`;
         } else if (doneCategoryId) {
             // Exclude Done category from "All Phrases" view
-            categoryParam = `?exclude_category_id=${doneCategoryId}`;
+            categoryParam = `?exclude_category_id=${doneCategoryId}&sort=${sortMode}`;
+        } else {
+            categoryParam = `?sort=${sortMode}`;
         }
         
         const result = await apiCall(`/phrases${categoryParam}`);
@@ -976,6 +982,10 @@ async function loadPhrases() {
     } catch (error) {
         console.error('Error loading phrases:', error);
     }
+}
+
+function sortPhrases() {
+    loadPhrases();
 }
 
 function renderPhrases(phrases) {
@@ -1248,7 +1258,10 @@ function renderPhraseCategories() {
 
         btn.innerHTML = `
             <span>📁 ${cat.name}</span>
-            <span onclick="deletePhraseCategory(event, ${cat.id})" class="opacity-0 group-hover:opacity-100 text-xs bg-red-400 hover:bg-red-500 text-white p-1 rounded-md transition-all">✕</span>
+            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span onclick="event.stopPropagation(); showEditPhraseCategoryModal(${cat.id}, '${cat.name.replace(/'/g, "\\'")}');" class="text-xs bg-blue-400 hover:bg-blue-500 text-white p-1 rounded-md transition-all cursor-pointer" title="Edit Category">✏️</span>
+                <span onclick="event.stopPropagation(); deletePhraseCategory(event, ${cat.id});" class="text-xs bg-red-400 hover:bg-red-500 text-white p-1 rounded-md transition-all cursor-pointer" title="Delete Category">✕</span>
+            </div>
         `;
         container.appendChild(btn);
     });
@@ -1322,6 +1335,93 @@ async function addPhraseCategory() {
 
     } catch (error) {
         alert('Failed to add category: ' + error.message);
+    }
+}
+
+// Toggle phrase category section (collapse/expand)
+function togglePhraseCategorySection() {
+    const container = document.getElementById('phrase-category-list');
+    const icon = document.getElementById('phrase-category-toggle-icon');
+    
+    if (!container || !icon) return;
+    
+    const isCollapsed = container.classList.contains('max-h-0');
+    
+    if (isCollapsed) {
+        // Expand
+        container.classList.remove('max-h-0', 'opacity-0');
+        container.classList.add('max-h-96', 'opacity-100');
+        icon.style.transform = 'rotate(0deg)';
+    } else {
+        // Collapse
+        container.classList.remove('max-h-96', 'opacity-100');
+        container.classList.add('max-h-0', 'opacity-0');
+        icon.style.transform = 'rotate(-90deg)';
+    }
+}
+
+// Show edit phrase category modal
+function showEditPhraseCategoryModal(categoryId, categoryName) {
+    const modal = document.getElementById('edit-phrase-category-modal');
+    const input = document.getElementById('edit-phrase-category-name');
+    
+    if (!modal || !input) return;
+    
+    input.value = categoryName;
+    input.dataset.categoryId = categoryId;
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    input.focus();
+}
+
+// Hide edit phrase category modal
+function hideEditPhraseCategoryModal() {
+    const modal = document.getElementById('edit-phrase-category-modal');
+    const input = document.getElementById('edit-phrase-category-name');
+    
+    if (!modal || !input) return;
+    
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    input.value = '';
+    delete input.dataset.categoryId;
+}
+
+// Update phrase category name
+async function updatePhraseCategory() {
+    const input = document.getElementById('edit-phrase-category-name');
+    const categoryId = input.dataset.categoryId;
+    const newName = input.value.trim();
+    
+    if (!newName) {
+        alert('Please enter a category name!');
+        return;
+    }
+    
+    if (!categoryId) {
+        alert('Category ID not found!');
+        return;
+    }
+    
+    try {
+        await apiCall(`/phrases/categories/${categoryId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name: newName })
+        });
+        
+        hideEditPhraseCategoryModal();
+        await loadPhraseCategories();
+        
+        // Show success feedback
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[110] animate-fade-in';
+        successMsg.innerHTML = '✓ Category renamed successfully!';
+        document.body.appendChild(successMsg);
+        setTimeout(() => successMsg.remove(), 3000);
+        
+    } catch (error) {
+        alert('Failed to rename category: ' + error.message);
     }
 }
 
@@ -1567,7 +1667,10 @@ function renderNoteCategories() {
 
         btn.innerHTML = `
             <span>📁 ${cat.name}</span>
-            <span onclick="deleteNoteCategory(event, ${cat.id})" class="opacity-0 group-hover:opacity-100 text-xs bg-red-400 hover:bg-red-500 text-white p-1 rounded-md transition-all">✕</span>
+            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span onclick="event.stopPropagation(); showEditNoteCategoryModal(${cat.id}, '${cat.name.replace(/'/g, "\\'")}');" class="text-xs bg-blue-400 hover:bg-blue-500 text-white p-1 rounded-md transition-all cursor-pointer" title="Edit Category">✏️</span>
+                <span onclick="event.stopPropagation(); deleteNoteCategory(event, ${cat.id});" class="text-xs bg-red-400 hover:bg-red-500 text-white p-1 rounded-md transition-all cursor-pointer" title="Delete Category">✕</span>
+            </div>
         `;
         container.appendChild(btn);
     });
@@ -1644,6 +1747,93 @@ async function addNoteCategory() {
     }
 }
 
+// Toggle note category section (collapse/expand)
+function toggleNoteCategorySection() {
+    const container = document.getElementById('note-category-list');
+    const icon = document.getElementById('note-category-toggle-icon');
+    
+    if (!container || !icon) return;
+    
+    const isCollapsed = container.classList.contains('max-h-0');
+    
+    if (isCollapsed) {
+        // Expand
+        container.classList.remove('max-h-0', 'opacity-0');
+        container.classList.add('max-h-96', 'opacity-100');
+        icon.style.transform = 'rotate(0deg)';
+    } else {
+        // Collapse
+        container.classList.remove('max-h-96', 'opacity-100');
+        container.classList.add('max-h-0', 'opacity-0');
+        icon.style.transform = 'rotate(-90deg)';
+    }
+}
+
+// Show edit note category modal
+function showEditNoteCategoryModal(categoryId, categoryName) {
+    const modal = document.getElementById('edit-note-category-modal');
+    const input = document.getElementById('edit-note-category-name');
+    
+    if (!modal || !input) return;
+    
+    input.value = categoryName;
+    input.dataset.categoryId = categoryId;
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    input.focus();
+}
+
+// Hide edit note category modal
+function hideEditNoteCategoryModal() {
+    const modal = document.getElementById('edit-note-category-modal');
+    const input = document.getElementById('edit-note-category-name');
+    
+    if (!modal || !input) return;
+    
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    input.value = '';
+    delete input.dataset.categoryId;
+}
+
+// Update note category name
+async function updateNoteCategory() {
+    const input = document.getElementById('edit-note-category-name');
+    const categoryId = input.dataset.categoryId;
+    const newName = input.value.trim();
+    
+    if (!newName) {
+        alert('Please enter a category name!');
+        return;
+    }
+    
+    if (!categoryId) {
+        alert('Category ID not found!');
+        return;
+    }
+    
+    try {
+        await apiCall(`/notes/categories/${categoryId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name: newName })
+        });
+        
+        hideEditNoteCategoryModal();
+        await loadNoteCategories();
+        
+        // Show success feedback
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[110] animate-fade-in';
+        successMsg.innerHTML = '✓ Category renamed successfully!';
+        document.body.appendChild(successMsg);
+        setTimeout(() => successMsg.remove(), 3000);
+        
+    } catch (error) {
+        alert('Failed to rename category: ' + error.message);
+    }
+}
+
 async function deleteNoteCategory(event, id) {
     event.stopPropagation();
     if (!confirm('Are you sure you want to delete this category? Notes inside will not be deleted but will no longer have a category.')) return;
@@ -1697,7 +1887,9 @@ function renderNotes(notes) {
             const borderColor = opColors[index % opColors.length];
             div.className = `glass-card p-8 rounded-2xl border-t-8 ${borderColor} bg-[#fffcf0] relative group shadow-[4px_4px_0px_#5d3615]`;
 
-            const date = new Date(note.created_at).toLocaleDateString();
+            // Get category name if available
+            const categoryName = note.note_categories?.name || 'Uncategorized';
+            const categoryIcon = note.note_categories?.name ? '📁' : '📝';
 
             div.innerHTML = `
                 <div class="flex justify-between items-start mb-4">
@@ -1708,7 +1900,10 @@ function renderNotes(notes) {
                     </div>
                 </div>
                 <p class="text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">${linkifyUrls(note.content)}</p>
-                <div class="text-[10px] text-slate-500 mt-6 font-black uppercase tracking-widest">Logged by Sanji: ${date}</div>
+                <div class="text-[10px] text-slate-500 mt-6 font-black uppercase tracking-widest flex items-center gap-1">
+                    <span>${categoryIcon}</span>
+                    <span>${categoryName}</span>
+                </div>
             `;
             container.appendChild(div);
         });

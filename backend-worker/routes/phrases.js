@@ -15,6 +15,7 @@ router.get('/', async (c) => {
     const supabase = getSupabaseClient(c.env);
     const category_id = c.req.query('category_id');
     const exclude_category_id = c.req.query('exclude_category_id');
+    const sort = c.req.query('sort') || 'newest';
 
     let query = supabase
       .from('custom_phrases')
@@ -30,7 +31,22 @@ router.get('/', async (c) => {
       query = query.or(`category_id.is.null,category_id.neq.${exclude_category_id}`);
     }
 
-    query = query.order('created_at', { ascending: false });
+    // Add sorting
+    switch (sort) {
+      case 'oldest':
+        query = query.order('created_at', { ascending: true });
+        break;
+      case 'az':
+        query = query.order('german', { ascending: true });
+        break;
+      case 'za':
+        query = query.order('german', { ascending: false });
+        break;
+      case 'newest':
+      default:
+        query = query.order('created_at', { ascending: false });
+        break;
+    }
 
     const { data: phrases, error } = await query;
 
@@ -122,6 +138,50 @@ router.post('/categories', async (c) => {
     return c.json({
       success: false,
       error: 'Failed to add category'
+    }, 500);
+  }
+});
+
+/**
+ * PUT /api/phrases/categories/:id
+ * Update a phrase category name
+ */
+router.put('/categories/:id', async (c) => {
+  try {
+    const supabase = getSupabaseClient(c.env);
+    const id = c.req.param('id');
+    const { name } = await c.req.json();
+
+    if (!name || name.trim().length === 0) {
+      return c.json({ success: false, error: 'Category name is required' }, 400);
+    }
+
+    const { data: category, error } = await supabase
+      .from('phrase_categories')
+      .update({ name: name.trim() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return c.json({ success: false, error: 'Category not found' }, 404);
+      }
+      if (error.code === '23505') { // Unique constraint
+        return c.json({ success: false, error: 'Category name already exists' }, 409);
+      }
+      throw error;
+    }
+
+    return c.json({
+      success: true,
+      data: category
+    });
+  } catch (error) {
+    console.error('Error updating category:', error);
+    return c.json({
+      success: false,
+      error: 'Failed to update category'
     }, 500);
   }
 });

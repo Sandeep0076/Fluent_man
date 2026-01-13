@@ -69,6 +69,50 @@ router.post('/categories', async (c) => {
 });
 
 /**
+ * PUT /api/notes/categories/:id
+ * Update a note category name
+ */
+router.put('/categories/:id', async (c) => {
+    try {
+        const supabase = getSupabaseClient(c.env);
+        const id = c.req.param('id');
+        const { name } = await c.req.json();
+        
+        if (!name || name.trim().length === 0) {
+            return c.json({ success: false, error: 'Category name is required' }, 400);
+        }
+
+        const { data: category, error } = await supabase
+            .from('note_categories')
+            .update({ name: name.trim() })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return c.json({ success: false, error: 'Category not found' }, 404);
+            }
+            if (error.code === '23505') { // Unique constraint
+                return c.json({ success: false, error: 'Category name already exists' }, 409);
+            }
+            throw error;
+        }
+
+        return c.json({
+            success: true,
+            data: category
+        });
+    } catch (error) {
+        console.error('Error updating note category:', error);
+        return c.json({
+            success: false,
+            error: 'Failed to update note category'
+        }, 500);
+    }
+});
+
+/**
  * DELETE /api/notes/categories/:id
  * Delete a note category (sets notes' category_id to NULL)
  */
@@ -116,7 +160,9 @@ router.get('/', async (c) => {
         console.log('[DEBUG] Sort parameter:', sort);
         console.log('[DEBUG] Category filter:', category_id);
         
-        let query = supabase.from('notes').select('*');
+        let query = supabase
+            .from('notes')
+            .select('*, note_categories(id, name)');
 
         // Add category filter
         if (category_id && category_id !== 'all') {
@@ -248,17 +294,31 @@ router.put('/:id', async (c) => {
         const supabase = getSupabaseClient(c.env);
         const id = c.req.param('id')
         const { title, content, category_id } = await c.req.json();
-        if (!title || !content) {
-            return c.json({ success: false, error: 'Both title and content are required' }, 400);
+        
+        // Build update data object with only provided fields
+        const updateData = {};
+        
+        if (title !== undefined && title !== null) {
+            if (title.trim().length === 0) {
+                return c.json({ success: false, error: 'Title cannot be empty' }, 400);
+            }
+            updateData.title = title.trim();
         }
-
-        const updateData = {
-            title: title.trim(),
-            content: content.trim()
-        };
+        
+        if (content !== undefined && content !== null) {
+            if (content.trim().length === 0) {
+                return c.json({ success: false, error: 'Content cannot be empty' }, 400);
+            }
+            updateData.content = content.trim();
+        }
         
         if (category_id !== undefined) {
             updateData.category_id = category_id;
+        }
+        
+        // Ensure at least one field is being updated
+        if (Object.keys(updateData).length === 0) {
+            return c.json({ success: false, error: 'No fields to update' }, 400);
         }
 
         const { data: updatedNote, error } = await supabase

@@ -1190,16 +1190,26 @@
             <header class="glass-panel p-6 rounded-3xl mb-6 relative overflow-hidden"
                     style="border: 4px solid var(--bronze-dark); box-shadow: 0 0 0 2px var(--copper), 8px 8px 0 rgba(139, 105, 20, 0.3);">
                 <div class="absolute top-2 right-2 text-4xl opacity-10 pointer-events-none">📢</div>
-                <div class="flex justify-between items-center">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
                     <div>
-                        <h2 class="text-4xl font-black mb-2 compass-accent op-font" style="color: var(--ship-wood);">Crew Chants</h2>
-                        <p class="text-lg font-bold" style="color: var(--text-secondary);">Master the patterns of speech. Yo-ho-ho!</p>
+                        <h2 class="text-3xl md:text-4xl font-black mb-2 compass-accent op-font" style="color: var(--ship-wood);">Crew Chants</h2>
+                        <p class="text-base font-bold" style="color: var(--text-secondary);">Master the patterns of speech. Yo-ho-ho!</p>
                     </div>
-                    <button id="toggle-add-phrase-btn" onclick="toggleAddPhraseSection()"
-                        class="w-12 h-12 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-200 transition-all transform hover:scale-110 active:scale-95 group"
-                        title="Add New Phrase">
-                        <span class="text-2xl font-bold transition-transform group-hover:rotate-90">+</span>
-                    </button>
+
+                    <div class="flex flex-col sm:flex-row gap-4 w-full md:w-auto items-center">
+                        <button id="toggle-add-phrase-btn" onclick="toggleAddPhraseSection()"
+                            class="w-12 h-12 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-200 transition-all transform hover:scale-110 active:scale-95 group"
+                            title="Add New Phrase">
+                            <span class="text-2xl font-bold transition-transform group-hover:rotate-90">+</span>
+                        </button>
+                        <select id="phrases-sort" onchange="sortPhrases()"
+                            class="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 cursor-pointer">
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="az">A-Z</option>
+                            <option value="za">Z-A</option>
+                        </select>
+                    </div>
                 </div>
             </header>
 
@@ -1248,17 +1258,20 @@
 
                 <!-- Right Column: Categories -->
                 <div class="w-full lg:w-80 flex flex-col gap-6">
-                    <div class="glass-card p-3 sm:p-6 rounded-[30px] !bg-white/60 h-full flex flex-col">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="font-bold text-lg text-slate-800">Categories</h3>
-                            <button onclick="showAddPhraseCategoryModal()"
+                    <div class="glass-card p-3 sm:p-6 rounded-[30px] !bg-white/60 flex flex-col">
+                        <div class="flex justify-between items-center mb-4 cursor-pointer" onclick="togglePhraseCategorySection()">
+                            <h3 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+                                <span id="phrase-category-toggle-icon" class="transition-transform duration-300">▼</span>
+                                Categories
+                            </h3>
+                            <button onclick="event.stopPropagation(); showAddPhraseCategoryModal()"
                                 class="w-8 h-8 flex items-center justify-center bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
                                 title="Add New Category">
                                 <span class="text-xl">+</span>
                             </button>
                         </div>
 
-                        <div id="phrase-category-list" class="flex-1 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+                        <div id="phrase-category-list" class="overflow-y-auto pr-1 space-y-2 custom-scrollbar max-h-0 opacity-0 transition-all duration-300">
                             <button onclick="selectPhraseCategory('all')" id="phrase-cat-all"
                                 class="w-full text-left px-4 py-3 rounded-xl bg-blue-600 text-white font-bold transition-all shadow-md">
                                 📁 All Phrases
@@ -1281,6 +1294,23 @@
                         <button onclick="addPhraseCategory()"
                             class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-100">Create</button>
                         <button onclick="hideAddPhraseCategoryModal()"
+                            class="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Phrase Category Modal -->
+            <div id="edit-phrase-category-modal"
+                class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+                <div class="glass-card w-full max-w-sm p-8 bg-white/90" onclick="event.stopPropagation()">
+                    <h3 class="text-2xl font-bold text-slate-800 mb-6">Rename Category</h3>
+                    <input type="text" id="edit-phrase-category-name" placeholder="Category name..."
+                        class="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 mb-6"
+                        onkeypress="if(event.key === 'Enter') updatePhraseCategory()">
+                    <div class="flex gap-3">
+                        <button onclick="updatePhraseCategory()"
+                            class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-100">Update</button>
+                        <button onclick="hideEditPhraseCategoryModal()"
                             class="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancel</button>
                     </div>
                 </div>
@@ -1404,17 +1434,20 @@
 
                 <!-- Right Column: Categories -->
                 <div class="w-full lg:w-80 flex flex-col gap-6">
-                    <div class="glass-card p-3 sm:p-6 rounded-[30px] !bg-white/60 h-full flex flex-col">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="font-bold text-lg text-slate-800">Categories</h3>
-                            <button onclick="showAddNoteCategoryModal()"
+                    <div class="glass-card p-3 sm:p-6 rounded-[30px] !bg-white/60 flex flex-col">
+                        <div class="flex justify-between items-center mb-4 cursor-pointer" onclick="toggleNoteCategorySection()">
+                            <h3 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+                                <span id="note-category-toggle-icon" class="transition-transform duration-300">▼</span>
+                                Categories
+                            </h3>
+                            <button onclick="event.stopPropagation(); showAddNoteCategoryModal()"
                                 class="w-8 h-8 flex items-center justify-center bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
                                 title="Add New Category">
                                 <span class="text-xl">+</span>
                             </button>
                         </div>
 
-                        <div id="note-category-list" class="flex-1 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
+                        <div id="note-category-list" class="overflow-y-auto pr-1 space-y-2 custom-scrollbar max-h-0 opacity-0 transition-all duration-300">
                             <button onclick="selectNoteCategory('all')" id="note-cat-all"
                                 class="w-full text-left px-4 py-3 rounded-xl bg-blue-600 text-white font-bold transition-all shadow-md">
                                 📁 All Notes
@@ -1439,6 +1472,23 @@
                     <button onclick="addNoteCategory()"
                         class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-100">Create</button>
                     <button onclick="hideAddNoteCategoryModal()"
+                        class="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Note Category Modal -->
+        <div id="edit-note-category-modal"
+            class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+            <div class="glass-card w-full max-w-sm p-8 bg-white/90" onclick="event.stopPropagation()">
+                <h3 class="text-2xl font-bold text-slate-800 mb-6">Rename Category</h3>
+                <input type="text" id="edit-note-category-name" placeholder="Category name..."
+                    class="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 mb-6"
+                    onkeypress="if(event.key === 'Enter') updateNoteCategory()">
+                <div class="flex gap-3">
+                    <button onclick="updateNoteCategory()"
+                        class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-100">Update</button>
+                    <button onclick="hideEditNoteCategoryModal()"
                         class="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancel</button>
                 </div>
             </div>
